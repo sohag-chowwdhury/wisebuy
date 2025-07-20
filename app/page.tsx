@@ -1,3 +1,4 @@
+// app/page.tsx
 import { MainLayout } from "@/components/main-layout";
 import { PhotoUpload } from "@/components/photo-upload";
 import { FeaturesSection } from "@/components/features-section";
