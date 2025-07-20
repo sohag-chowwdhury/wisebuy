@@ -1,4 +1,4 @@
-// app/api/upload/route.ts
+
 export async function POST(request: Request) {
   console.log('🎯 POST route hit! Request received');
   

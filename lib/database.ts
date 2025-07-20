@@ -1,7 +1,14 @@
 // lib/database.ts
 import { supabase } from '@/lib/supabase/client';
 import { supabase as supabaseAdmin } from '@/lib/supabase/admin';
-
+// Add these imports to your existing imports
+import { 
+  saveProduct, 
+  saveProductImages, 
+  startPipelinePhase, 
+  completePipelinePhase,
+  logPipelineEvent 
+} from './supabase/realtime-database'
 export interface CreateProductParams {
   user_id: string;
   name?: string;
