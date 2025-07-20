@@ -1,0 +1,18 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+## Project info
+This is a nextjs 15.3.3 project using
+- next-themes (^0.4.6)
+- ReactJS (^19.0.0)
+- TypeScript (^5)
+- TailwindCSS (^4)
+- Sonner
+- Shadcn
+- Lucide React for Icons
+
+Always try to reuse code, and take advantage of the latest new feature added to each library. 
+
+When add new file please follow hyphen-separated small letter naming.

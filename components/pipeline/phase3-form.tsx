@@ -1,0 +1,364 @@
+"use client";
+
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import {
+  Search,
+  X,
+  Plus,
+  Save,
+  ChevronLeft,
+  ChevronRight,
+  Play,
+  Square,
+  RotateCcw,
+} from "lucide-react";
+
+// Phase completion status
+type PhaseStatus = "pending" | "running" | "completed" | "failed";
+
+interface PhaseState {
+  status: PhaseStatus;
+  isRunning: boolean;
+}
+
+export interface SEOAnalysisData {
+  seoTitle: string;
+  urlSlug: string;
+  metaDescription: string;
+  keywords: string[];
+  tags: string[];
+}
+
+interface Phase3FormProps {
+  data: SEOAnalysisData;
+  onUpdate: (data: SEOAnalysisData) => void;
+  onSave: () => void;
+  onNext: () => void;
+  onPrevious: () => void;
+  phaseState: PhaseState;
+  onStart: () => void;
+  onStop: () => void;
+  onRestart: () => void;
+  canStart: boolean;
+}
+
+export function Phase3Form({
+  data,
+  onUpdate,
+  onSave,
+  onNext,
+  onPrevious,
+  phaseState,
+  onStart,
+  onStop,
+  onRestart,
+  canStart,
+}: Phase3FormProps) {
+  const [localData, setLocalData] = useState(data);
+  const [newKeyword, setNewKeyword] = useState("");
+  const [newTag, setNewTag] = useState("");
+
+  const handleFieldChange = (
+    field: keyof Omit<SEOAnalysisData, "keywords" | "tags">,
+    value: string
+  ) => {
+    const newData = { ...localData, [field]: value };
+    setLocalData(newData);
+    onUpdate(newData);
+  };
+
+  const addKeyword = () => {
+    if (newKeyword.trim() && !localData.keywords.includes(newKeyword.trim())) {
+      const newData = {
+        ...localData,
+        keywords: [...localData.keywords, newKeyword.trim()],
+      };
+      setLocalData(newData);
+      onUpdate(newData);
+      setNewKeyword("");
+    }
+  };
+
+  const removeKeyword = (keyword: string) => {
+    const newData = {
+      ...localData,
+      keywords: localData.keywords.filter((k) => k !== keyword),
+    };
+    setLocalData(newData);
+    onUpdate(newData);
+  };
+
+  const addTag = () => {
+    if (newTag.trim() && !localData.tags.includes(newTag.trim())) {
+      const newData = {
+        ...localData,
+        tags: [...localData.tags, newTag.trim()],
+      };
+      setLocalData(newData);
+      onUpdate(newData);
+      setNewTag("");
+    }
+  };
+
+  const removeTag = (tag: string) => {
+    const newData = {
+      ...localData,
+      tags: localData.tags.filter((t) => t !== tag),
+    };
+    setLocalData(newData);
+    onUpdate(newData);
+  };
+
+  const generateSlug = () => {
+    const slug = localData.seoTitle
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .trim();
+    handleFieldChange("urlSlug", slug);
+  };
+
+  const renderPhaseControls = () => {
+    if (phaseState.status === "pending") {
+      return (
+        <Button
+          onClick={onStart}
+          disabled={!canStart}
+          size="sm"
+          className="mr-2"
+        >
+          <Play className="h-4 w-4 mr-2" />
+          Start SEO Analysis
+        </Button>
+      );
+    }
+
+    if (phaseState.status === "running") {
+      return (
+        <div className="flex gap-2">
+          <Button onClick={onStop} variant="destructive" size="sm">
+            <Square className="h-4 w-4 mr-2" />
+            Stop
+          </Button>
+          <Button onClick={onRestart} variant="outline" size="sm">
+            <RotateCcw className="h-4 w-4 mr-2" />
+            Restart
+          </Button>
+        </div>
+      );
+    }
+
+    if (phaseState.status === "completed") {
+      return (
+        <Button onClick={onRestart} variant="outline" size="sm">
+          <RotateCcw className="h-4 w-4 mr-2" />
+          Restart
+        </Button>
+      );
+    }
+
+    return null;
+  };
+
+  const getStatusColor = () => {
+    switch (phaseState.status) {
+      case "completed":
+        return "text-green-600";
+      case "running":
+        return "text-blue-600";
+      case "failed":
+        return "text-red-600";
+      default:
+        return "text-muted-foreground";
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+              <Search className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-lg">SEO Analysis</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Content optimization and search engine optimization
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge
+              variant={
+                phaseState.status === "completed"
+                  ? "default"
+                  : phaseState.status === "running"
+                  ? "secondary"
+                  : "outline"
+              }
+            >
+              <span className={getStatusColor()}>{phaseState.status}</span>
+            </Badge>
+            {renderPhaseControls()}
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {/* SEO Title */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="seoTitle">SEO Title</Label>
+            <span className="text-sm text-muted-foreground">
+              {localData.seoTitle.length}/60
+            </span>
+          </div>
+          <Input
+            id="seoTitle"
+            value={localData.seoTitle}
+            onChange={(e) => handleFieldChange("seoTitle", e.target.value)}
+            placeholder="Enter SEO-optimized title"
+            maxLength={60}
+          />
+        </div>
+
+        {/* URL Slug */}
+        <div className="space-y-2">
+          <Label htmlFor="urlSlug">URL Slug</Label>
+          <div className="flex gap-2">
+            <Input
+              id="urlSlug"
+              value={localData.urlSlug}
+              onChange={(e) => handleFieldChange("urlSlug", e.target.value)}
+              placeholder="url-slug"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={generateSlug}
+              size="sm"
+            >
+              Auto-generate
+            </Button>
+          </div>
+        </div>
+
+        {/* Meta Description */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="metaDescription">Meta Description</Label>
+            <span className="text-sm text-muted-foreground">
+              {localData.metaDescription.length}/160
+            </span>
+          </div>
+          <Textarea
+            id="metaDescription"
+            value={localData.metaDescription}
+            onChange={(e) =>
+              handleFieldChange("metaDescription", e.target.value)
+            }
+            placeholder="Enter meta description for search engines"
+            rows={3}
+            maxLength={160}
+          />
+        </div>
+
+        {/* Keywords */}
+        <div className="space-y-2">
+          <Label>Keywords</Label>
+          <div className="flex gap-2">
+            <Input
+              value={newKeyword}
+              onChange={(e) => setNewKeyword(e.target.value)}
+              placeholder="Add keyword"
+              onKeyPress={(e) => e.key === "Enter" && addKeyword()}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={addKeyword}
+              size="sm"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add
+            </Button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {localData.keywords.map((keyword) => (
+              <Badge key={keyword} variant="secondary">
+                {keyword}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="ml-1 h-4 w-4 p-0"
+                  onClick={() => removeKeyword(keyword)}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </Badge>
+            ))}
+          </div>
+        </div>
+
+        {/* Tags */}
+        <div className="space-y-2">
+          <Label>Tags</Label>
+          <div className="flex gap-2">
+            <Input
+              value={newTag}
+              onChange={(e) => setNewTag(e.target.value)}
+              placeholder="Add tag"
+              onKeyPress={(e) => e.key === "Enter" && addTag()}
+            />
+            <Button type="button" variant="outline" onClick={addTag} size="sm">
+              <Plus className="h-4 w-4 mr-2" />
+              Add
+            </Button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {localData.tags.map((tag) => (
+              <Badge key={tag} variant="outline">
+                {tag}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="ml-1 h-4 w-4 p-0"
+                  onClick={() => removeTag(tag)}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </Badge>
+            ))}
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex justify-between pt-4">
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={onPrevious}>
+              <ChevronLeft className="h-4 w-4 mr-2" />
+              Previous
+            </Button>
+            <Button variant="outline" onClick={onSave}>
+              <Save className="h-4 w-4 mr-2" />
+              Save Progress
+            </Button>
+          </div>
+          <Button onClick={onNext}>
+            Continue to Product Listing
+            <ChevronRight className="h-4 w-4 ml-2" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
