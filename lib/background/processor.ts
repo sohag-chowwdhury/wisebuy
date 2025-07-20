@@ -284,46 +284,371 @@ export class BackgroundProcessor {
     console.log(`✅ Phase 3 completed for product: ${product_id}`)
   }
 
-  private async processPhase4(job: BackgroundJob) {
-    const { product_id, payload } = job
-    if (!product_id) throw new Error('Product ID required for phase 4')
+/**
+ * FIXED Phase 4 Processor - SEO & Publishing
+ * This fixes the issue where SEO data wasn't being saved to the database
+ */
 
-    const { data: product } = await this.supabase
-      .from('products')
-      .select('*')
-      .eq('id', product_id)
+// Add this method to your existing background processor class:
+
+private async processPhase4(job: BackgroundJob) {
+  const { product_id, payload } = job
+  if (!product_id) throw new Error('Product ID required for phase 4')
+
+  console.log(`🚀 [PHASE-4] Starting SEO optimization for ${product_id}`)
+
+  // Get product data with all related information
+  const { data: product } = await this.supabase
+    .from('products')
+    .select(`
+      *,
+      product_analysis_data(*),
+      product_market_data(*),
+      product_listings(*)
+    `)
+    .eq('id', product_id)
+    .single()
+
+  if (!product) throw new Error('Product not found')
+
+  // Simulate SEO optimization processing
+  await this.delay(2500)
+
+  // Generate comprehensive SEO data
+  const seoData = {
+    seoTitle: this.generateSEOTitle(product),
+    metaDescription: this.generateMetaDescription(product),
+    urlSlug: this.generateUrlSlug(product),
+    keywords: this.generateKeywords(product),
+    tags: this.generateTags(product),
+    seoScore: Math.floor(Math.random() * 20) + 80, // 80-100
+    keywordDensity: +(Math.random() * 3 + 1).toFixed(2), // 1-4%
+    readabilityScore: Math.floor(Math.random() * 20) + 75, // 75-95
+    optimizedTitle: this.generateOptimizedTitle(product),
+    optimizedDescription: this.generateOptimizedDescription(product),
+    contentSuggestions: this.generateContentSuggestions(product),
+    canonicalUrl: this.generateCanonicalUrl(product),
+    robotsMeta: 'index,follow',
+    schemaMarkup: this.generateSchemaMarkup(product),
+    ogTitle: this.generateOGTitle(product),
+    ogDescription: this.generateOGDescription(product),
+    twitterTitle: this.generateTwitterTitle(product),
+    twitterDescription: this.generateTwitterDescription(product),
+    targetKeywords: this.generateTargetKeywords(product),
+    competitorAnalysis: this.generateCompetitorAnalysis(product),
+    searchVolumeData: this.generateSearchVolumeData(product)
+  }
+
+  try {
+    // 1. Save to dedicated SEO analysis table
+    const { data: seoRecord, error: seoError } = await this.supabase
+      .from('seo_analysis_data')
+      .insert({
+        product_id: product_id,
+        seo_title: seoData.seoTitle,
+        meta_description: seoData.metaDescription,
+        url_slug: seoData.urlSlug,
+        keywords: seoData.keywords,
+        tags: seoData.tags,
+        seo_score: seoData.seoScore,
+        keyword_density: seoData.keywordDensity,
+        readability_score: seoData.readabilityScore,
+        optimized_title: seoData.optimizedTitle,
+        optimized_description: seoData.optimizedDescription,
+        content_suggestions: seoData.contentSuggestions,
+        canonical_url: seoData.canonicalUrl,
+        robots_meta: seoData.robotsMeta,
+        schema_markup: seoData.schemaMarkup,
+        og_title: seoData.ogTitle,
+        og_description: seoData.ogDescription,
+        twitter_title: seoData.twitterTitle,
+        twitter_description: seoData.twitterDescription,
+        target_keywords: seoData.targetKeywords,
+        competitor_analysis: seoData.competitorAnalysis,
+        search_volume_data: seoData.searchVolumeData
+      })
+      .select()
       .single()
 
-    if (!product) throw new Error('Product not found')
+    if (seoError) {
+      // If insert fails due to conflict, try update instead
+      if (seoError.code === '23505') { // Unique constraint violation
+        console.log(`🔄 [PHASE-4] SEO record exists, updating for ${product_id}`)
+        const { error: updateError } = await this.supabase
+          .from('seo_analysis_data')
+          .update({
+            seo_title: seoData.seoTitle,
+            meta_description: seoData.metaDescription,
+            url_slug: seoData.urlSlug,
+            keywords: seoData.keywords,
+            tags: seoData.tags,
+            seo_score: seoData.seoScore,
+            keyword_density: seoData.keywordDensity,
+            readability_score: seoData.readabilityScore,
+            optimized_title: seoData.optimizedTitle,
+            optimized_description: seoData.optimizedDescription,
+            content_suggestions: seoData.contentSuggestions,
+            canonical_url: seoData.canonicalUrl,
+            robots_meta: seoData.robotsMeta,
+            schema_markup: seoData.schemaMarkup,
+            og_title: seoData.ogTitle,
+            og_description: seoData.ogDescription,
+            twitter_title: seoData.twitterTitle,
+            twitter_description: seoData.twitterDescription,
+            target_keywords: seoData.targetKeywords,
+            competitor_analysis: seoData.competitorAnalysis,
+            search_volume_data: seoData.searchVolumeData,
+            updated_at: new Date().toISOString()
+          })
+          .eq('product_id', product_id)
 
-    // Simulate SEO optimization
-    await this.delay(2500)
-
-    const mockSEOData = {
-      seoTitle: this.generateSEOTitle(product),
-      metaDescription: this.generateMetaDescription(product),
-      urlSlug: this.generateUrlSlug(product),
-      keywords: this.generateKeywords(product)
+        if (updateError) throw updateError
+      } else {
+        throw seoError
+      }
     }
 
-    await this.supabase
+    console.log(`✅ [PHASE-4] SEO data saved to seo_analysis_data table for ${product_id}`)
+
+    // 2. Also update products table with basic SEO fields for quick access
+    const { error: productUpdateError } = await this.supabase
       .from('products')
       .update({
-        seo_title: mockSEOData.seoTitle,
-        meta_description: mockSEOData.metaDescription,
-        url_slug: mockSEOData.urlSlug,
-        keywords: mockSEOData.keywords
+        seo_title: seoData.seoTitle,
+        meta_description: seoData.metaDescription,
+        url_slug: seoData.urlSlug,
+        keywords: seoData.keywords,
+        updated_at: new Date().toISOString()
       })
       .eq('id', product_id)
 
-    await this.supabase.rpc('complete_phase', {
+    if (productUpdateError) {
+      console.warn(`⚠️ [PHASE-4] Failed to update products table with SEO data:`, productUpdateError)
+      // Don't throw error here as the main SEO data is already saved
+    } else {
+      console.log(`✅ [PHASE-4] Products table updated with SEO summary for ${product_id}`)
+    }
+
+    // 3. Complete the phase using the RPC function
+    const { error: completeError } = await this.supabase.rpc('complete_phase', {
       p_phase_id: payload.phase_id,
-      p_output_data: mockSEOData
+      p_output_data: {
+        seo_analysis_id: seoRecord?.id,
+        seo_score: seoData.seoScore,
+        keywords_count: seoData.keywords.length,
+        tags_count: seoData.tags.length,
+        optimization_status: 'completed'
+      }
     })
 
-    console.log(`✅ Phase 4 completed for product: ${product_id}`)
-  }
+    if (completeError) {
+      console.warn(`⚠️ [PHASE-4] Failed to complete phase via RPC:`, completeError)
+    }
 
+    console.log(`✅ [PHASE-4] SEO optimization completed for product: ${product_id}`)
+
+  } catch (error) {
+    console.error(`❌ [PHASE-4] Error saving SEO data for ${product_id}:`, error)
+    throw error
+  }
+}
+
+// Enhanced SEO generation methods:
+
+private generateSEOTitle(product: any): string {
+  const name = product.name || 'Product'
+  const condition = product.item_condition || 'good'
+  const model = product.model ? ` ${product.model}` : ''
+  return `${name}${model} - ${this.capitalizeFirst(condition)} Condition | Best Price Online`
+}
+
+private generateMetaDescription(product: any): string {
+  const name = product.name || 'this product'
+  const condition = product.item_condition || 'good'
+  const price = product.final_price || product.suggested_price
+  const priceText = price ? ` Starting at $${price}.` : ''
+  return `Buy ${name} in ${condition} condition.${priceText} Fast shipping, money-back guarantee. Shop now for the best deals!`
+}
+
+private generateUrlSlug(product: any): string {
+  const name = product.name || 'product'
+  const model = product.model || ''
+  const fullName = `${name} ${model}`.trim()
+  return fullName
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .trim()
+    .substring(0, 50) // Limit length
+}
+
+private generateKeywords(product: any): string[] {
+  const keywords = []
+  const name = product.name || ''
+  const model = product.model || ''
+  const brand = product.detected_brands?.[0] || this.extractBrand(name)
+  const category = product.detected_categories?.[0] || this.categorizeProduct(name)
+  const condition = product.item_condition || 'good'
+
+  // Core keywords
+  if (name) keywords.push(name.toLowerCase())
+  if (model) keywords.push(model.toLowerCase())
+  if (brand) keywords.push(brand.toLowerCase())
+  if (category) keywords.push(category.toLowerCase())
+
+  // Combination keywords
+  if (name && condition) keywords.push(`${name.toLowerCase()} ${condition}`)
+  if (brand && category) keywords.push(`${brand.toLowerCase()} ${category.toLowerCase()}`)
+  if (name && model) keywords.push(`${name.toLowerCase()} ${model.toLowerCase()}`)
+
+  // Long tail keywords
+  keywords.push(`buy ${name.toLowerCase()}`)
+  keywords.push(`${name.toLowerCase()} for sale`)
+  keywords.push(`${condition} ${name.toLowerCase()}`)
+  keywords.push(`${name.toLowerCase()} price`)
+  keywords.push(`${name.toLowerCase()} deals`)
+
+  return [...new Set(keywords)].slice(0, 15) // Remove duplicates and limit
+}
+
+private generateTags(product: any): string[] {
+  const tags = []
+  const category = product.detected_categories?.[0] || this.categorizeProduct(product.name || '')
+  const condition = product.item_condition || 'good'
+  const brand = product.detected_brands?.[0] || this.extractBrand(product.name || '')
+
+  tags.push(category.toLowerCase())
+  tags.push(condition)
+  tags.push(brand.toLowerCase())
+  tags.push('electronics')
+  tags.push('tech')
+  tags.push('gadgets')
+  
+  if (condition === 'excellent' || condition === 'very_good') {
+    tags.push('premium')
+    tags.push('high-quality')
+  }
+  
+  tags.push('fast-shipping')
+  tags.push('warranty')
+  tags.push('authentic')
+
+  return [...new Set(tags)].slice(0, 10)
+}
+
+private generateOptimizedTitle(product: any): string {
+  const name = product.name || 'Product'
+  const model = product.model ? ` ${product.model}` : ''
+  const year = new Date().getFullYear()
+  return `${name}${model} ${year} - Best Deals & Fast Shipping`
+}
+
+private generateOptimizedDescription(product: any): string {
+  const name = product.name || 'this product'
+  const condition = product.item_condition || 'good'
+  const features = product.key_features || []
+  const featuresText = features.length > 0 ? ` Key features: ${features.slice(0, 3).join(', ')}.` : ''
+  
+  return `Discover amazing deals on ${name} in ${condition} condition. Perfect for both personal use and gifting.${featuresText} Shop with confidence - fast shipping, secure payment, and excellent customer service guaranteed.`
+}
+
+private generateContentSuggestions(product: any): string[] {
+  return [
+    'Add more detailed product specifications',
+    'Include high-quality product images from multiple angles',
+    'Add customer reviews and testimonials',
+    'Create comparison charts with similar products',
+    'Include warranty and return policy information',
+    'Add technical specifications and compatibility details'
+  ]
+}
+
+private generateCanonicalUrl(product: any): string {
+  const slug = this.generateUrlSlug(product)
+  return `https://yoursite.com/products/${slug}`
+}
+
+private generateSchemaMarkup(product: any): object {
+  return {
+    "@context": "https://schema.org/",
+    "@type": "Product",
+    "name": product.name || "Product",
+    "description": product.description || product.short_description || "Quality product",
+    "brand": {
+      "@type": "Brand",
+      "name": product.detected_brands?.[0] || "Generic"
+    },
+    "offers": {
+      "@type": "Offer",
+      "price": product.final_price || product.suggested_price || "0",
+      "priceCurrency": "USD",
+      "availability": "https://schema.org/InStock",
+      "condition": `https://schema.org/${this.mapConditionToSchema(product.item_condition)}`
+    }
+  }
+}
+
+private generateOGTitle(product: any): string {
+  return `${product.name || 'Product'} - Great Deal Available Now!`
+}
+
+private generateOGDescription(product: any): string {
+  return `Get ${product.name || 'this product'} in ${product.item_condition || 'good'} condition. Fast shipping and great prices!`
+}
+
+private generateTwitterTitle(product: any): string {
+  return `🔥 ${product.name || 'Amazing Product'} Deal Alert!`
+}
+
+private generateTwitterDescription(product: any): string {
+  return `Don't miss out on this ${product.name || 'product'} in ${product.item_condition || 'good'} condition. Limited time offer! #deals #tech`
+}
+
+private generateTargetKeywords(product: any): string[] {
+  return this.generateKeywords(product).slice(0, 5) // Top 5 most important
+}
+
+private generateCompetitorAnalysis(product: any): object {
+  return {
+    "competitors_found": Math.floor(Math.random() * 10) + 5,
+    "avg_competitor_price": (product.final_price || 250) * (1 + Math.random() * 0.3),
+    "price_advantage": "15% below market average",
+    "unique_selling_points": [
+      "Better condition",
+      "Faster shipping",
+      "Better customer service"
+    ]
+  }
+}
+
+private generateSearchVolumeData(product: any): object {
+  return {
+    "primary_keyword_volume": Math.floor(Math.random() * 5000) + 1000,
+    "secondary_keywords": {
+      [`${product.name} ${product.item_condition}`]: Math.floor(Math.random() * 1000) + 100,
+      [`buy ${product.name}`]: Math.floor(Math.random() * 2000) + 500
+    },
+    "trend": "stable",
+    "difficulty": Math.floor(Math.random() * 30) + 20
+  }
+}
+
+private mapConditionToSchema(condition: string): string {
+  const mapping: Record<string, string> = {
+    'excellent': 'NewCondition',
+    'very_good': 'RefurbishedCondition', 
+    'good': 'UsedCondition',
+    'fair': 'UsedCondition',
+    'poor': 'DamagedCondition',
+    'for_parts': 'DamagedCondition'
+  }
+  return mapping[condition] || 'UsedCondition'
+}
+
+private capitalizeFirst(str: string): string {
+  return str.charAt(0).toUpperCase() + str.slice(1)
+}
   // Helper methods
   private delay(ms: number) {
     return new Promise(resolve => setTimeout(resolve, ms))
