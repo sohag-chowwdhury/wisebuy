@@ -39,6 +39,20 @@ export function Phase1Results({
   onConditionChange,
   onContinue,
 }: Phase1ResultsProps) {
+  // Safety checks for analysisResult properties
+  if (!analysisResult) {
+    return (
+      <div className="text-center p-4">
+        <p className="text-muted-foreground">Analysis result not available</p>
+      </div>
+    );
+  }
+
+  // Ensure defects is always an array
+  const defects = analysisResult.defects || [];
+  const model = analysisResult.model || "Unknown Product";
+  const confidence = analysisResult.confidence || 0;
+
   const handleItemConditionChange = (value: string) => {
     onConditionChange({
       ...conditionInspection,
@@ -78,7 +92,7 @@ export function Phase1Results({
                 Product
               </Label>
               <p className="text-sm text-muted-foreground bg-white dark:bg-white/5 p-2 rounded border">
-                {analysisResult.model}
+                {model}
               </p>
             </div>
             <div className="space-y-1">
@@ -87,24 +101,24 @@ export function Phase1Results({
               </Label>
               <div className="flex items-center gap-2 bg-white dark:bg-white/5 p-2 rounded border">
                 <Progress
-                  value={analysisResult.confidence}
+                  value={confidence}
                   className="flex-1 h-2"
                 />
                 <span className="text-sm font-medium text-green-600 dark:text-green-400">
-                  {analysisResult.confidence}%
+                  {confidence}%
                 </span>
               </div>
             </div>
           </div>
 
-          {analysisResult.defects.length > 0 && (
+          {defects.length > 0 && (
             <div className="mt-4 space-y-2">
               <Label className="text-sm font-medium text-green-800 dark:text-green-200">
                 Detected Issues
               </Label>
               <div className="bg-white dark:bg-white/5 p-3 rounded border">
                 <ul className="text-sm text-muted-foreground space-y-1">
-                  {analysisResult.defects.map((defect, index) => (
+                  {defects.map((defect, index) => (
                     <li key={index}>• {defect}</li>
                   ))}
                 </ul>
@@ -141,7 +155,7 @@ export function Phase1Results({
                 Item Condition (appears on website)
               </Label>
               <Select
-                value={conditionInspection.itemCondition}
+                value={conditionInspection?.itemCondition || ""}
                 onValueChange={handleItemConditionChange}
               >
                 <SelectTrigger id="item-condition">
@@ -166,7 +180,7 @@ export function Phase1Results({
               <Input
                 id="product-condition"
                 placeholder="e.g., missing button, scratched on left side"
-                value={conditionInspection.productCondition}
+                value={conditionInspection?.productCondition || ""}
                 onChange={(e) => handleProductConditionChange(e.target.value)}
                 className="bg-white dark:bg-white/5"
               />
@@ -181,7 +195,7 @@ export function Phase1Results({
           <div className="flex justify-end mt-6">
             <Button
               onClick={onContinue}
-              disabled={!conditionInspection.itemCondition}
+              disabled={!conditionInspection?.itemCondition}
               className="bg-green-600 hover:bg-green-700 text-white disabled:bg-gray-400"
             >
               Continue to Phase 2

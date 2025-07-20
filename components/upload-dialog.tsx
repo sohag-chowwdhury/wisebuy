@@ -22,6 +22,9 @@ export function UploadDialog({
   onSuccess,
   files,
 }: UploadDialogProps) {
+  // Ensure files is always an array before passing to hook
+  const safeFiles = files && Array.isArray(files) ? files : [];
+
   const {
     // State
     stage,
@@ -51,7 +54,12 @@ export function UploadDialog({
     publishWithFiles,
     handleSaveDraft,
     handleClose: closeProcess,
-  } = useUploadProcess({ isOpen, files, onSuccess });
+  } = useUploadProcess({ isOpen, files: safeFiles, onSuccess });
+
+  // Early return after hooks are called
+  if (!files || !Array.isArray(files) || files.length === 0) {
+    return null;
+  }
 
   const handleClose = () => {
     closeProcess();
@@ -86,7 +94,7 @@ export function UploadDialog({
               currentPhase={currentPhase}
               progress={progress}
               statusMessage={statusMessage}
-              filesCount={files.length}
+              filesCount={safeFiles.length}
             />
           )}
 
@@ -145,12 +153,12 @@ export function UploadDialog({
                     customPrice,
                     selectedPlatforms,
                     productStatus,
-                    files,
+                    files: safeFiles,
                   }}
                   onPriceChange={handlePriceChange}
                   onPlatformToggle={handlePlatformToggle}
                   onStatusChange={handleStatusChange}
-                  onPublish={() => publishWithFiles(files)}
+                  onPublish={() => publishWithFiles(safeFiles)}
                   onSaveDraft={handleSaveDraft}
                 />
               )}

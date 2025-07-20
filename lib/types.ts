@@ -1,15 +1,32 @@
-// Shared types for the entire application
+// lib/types.ts - Complete types for the entire application
+
+// =====================================================
+// CORE UPLOAD AND PROCESSING TYPES
+// =====================================================
+
 export type UploadStage = "uploading" | "analyzing" | "validation" | "complete";
 export type ProcessingPhase = 1 | 2 | 3 | 4;
 
-// Product Analysis Types
+// =====================================================
+// PRODUCT ANALYSIS TYPES
+// =====================================================
+
 export interface ProductAnalysis {
   model: string;
   confidence: number;
   defects: string[];
+  condition?: string;
+  categories?: string[];
+  brands?: string[];
+  colors?: Record<string, any>;
+  imageQuality?: number;
+  completeness?: number;
 }
 
-// MSRP Data Types
+// =====================================================
+// MSRP DATA TYPES
+// =====================================================
+
 export interface MSRPData {
   currentSellingPrice: number;
   originalMSRP: number;
@@ -19,7 +36,10 @@ export interface MSRPData {
   sources: string[];
 }
 
-// Specifications Types
+// =====================================================
+// PRODUCT SPECIFICATIONS TYPES
+// =====================================================
+
 export interface ProductDimensions {
   length: string;
   width: string;
@@ -39,7 +59,10 @@ export interface ProductSpecifications {
   description: string;
 }
 
-// Competitive Analysis Types
+// =====================================================
+// COMPETITIVE ANALYSIS TYPES
+// =====================================================
+
 export interface PlatformPricing {
   averagePrice: number;
   priceRange: { low: number; high: number };
@@ -61,7 +84,10 @@ export interface CompetitiveData {
   insights: string;
 }
 
-// Pricing Types
+// =====================================================
+// PRICING TYPES
+// =====================================================
+
 export interface PricingRequest {
   productModel: string;
   condition: string;
@@ -85,7 +111,10 @@ export interface PricingSuggestion {
   confidence: number;
 }
 
-// SEO Types
+// =====================================================
+// SEO TYPES
+// =====================================================
+
 export interface SEORequest {
   productModel: string;
   specifications: ProductSpecifications;
@@ -106,61 +135,129 @@ export interface SEOData {
   tags: string[];
 }
 
-// API Response Types
-export interface APIResponse<T> {
-  success: boolean;
-  data?: T;
-  error?: string;
+// =====================================================
+// STREAMING DATA TYPES
+// =====================================================
+
+export interface ProgressData {
+  type: "progress";
+  value: number;
 }
 
-export interface StreamingData {
-  type:
-    | "progress"
-    | "status"
-    | "analysis"
-    | "msrp"
-    | "specifications"
-    | "competitive"
-    | "complete"
-    | "error";
-  value?: number;
-  message?: string;
-  result?: unknown;
+export interface StatusData {
+  type: "status";
+  message: string;
 }
 
-// UI Component Types
-export interface PhaseStep {
-  id: number;
-  title: string;
-  subtitle: string;
-  description: string;
-  icon: React.ComponentType<{ className?: string }>;
-  color: string;
-  bgColor: string;
-  borderColor: string;
+export interface AnalysisData {
+  type: "analysis";
+  result: ProductAnalysis;
 }
 
-export interface UploadDialogProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSuccess?: () => void; // Called when publish is successful
-  files: File[];
+export interface MSRPResponseData {
+  type: "msrp";
+  result: MSRPData;
 }
 
-// Publishing Types
-export type PublishingPlatform = "wordpress" | "ebay" | "facebook" | "google";
-
-export interface PublishingPlatformConfig {
-  id: PublishingPlatform;
-  name: string;
-  icon: string;
-  description: string;
+export interface SpecificationData {
+  type: "specifications";
+  result: ProductSpecifications;
 }
 
-// Product Condition Types - Updated for manual human inspection
+export interface CompetitiveAnalysisData {
+  type: "competitive";
+  result: CompetitiveData;
+}
+
+export interface PricingSuggestionData {
+  type: "pricing";
+  result: PricingSuggestion;
+}
+
+export interface SEOResponseData {
+  type: "seo";
+  result: SEOData;
+}
+
+export interface CompletionData {
+  type: "complete";
+  result: {
+    productId: string;
+    message: string;
+    success: boolean;
+    canCloseModal?: boolean;
+    imageUrls?: string[];
+  };
+}
+
+export interface ErrorData {
+  type: "error";
+  message: string;
+}
+
+// Union type for all streaming data
+export type StreamingData = 
+  | ProgressData
+  | StatusData 
+  | AnalysisData
+  | MSRPResponseData
+  | SpecificationData
+  | CompetitiveAnalysisData
+  | PricingSuggestionData
+  | SEOResponseData
+  | CompletionData
+  | ErrorData;
+
+// =====================================================
+// TYPE GUARDS FOR STREAMING DATA
+// =====================================================
+
+export function isProgressData(data: StreamingData): data is ProgressData {
+  return data.type === "progress";
+}
+
+export function isStatusData(data: StreamingData): data is StatusData {
+  return data.type === "status";
+}
+
+export function isAnalysisData(data: StreamingData): data is AnalysisData {
+  return data.type === "analysis";
+}
+
+export function isMSRPData(data: StreamingData): data is MSRPResponseData {
+  return data.type === "msrp";
+}
+
+export function isSpecificationData(data: StreamingData): data is SpecificationData {
+  return data.type === "specifications";
+}
+
+export function isCompetitiveData(data: StreamingData): data is CompetitiveAnalysisData {
+  return data.type === "competitive";
+}
+
+export function isPricingData(data: StreamingData): data is PricingSuggestionData {
+  return data.type === "pricing";
+}
+
+export function isSEOData(data: StreamingData): data is SEOResponseData {
+  return data.type === "seo";
+}
+
+export function isCompletionData(data: StreamingData): data is CompletionData {
+  return data.type === "complete";
+}
+
+export function isErrorData(data: StreamingData): data is ErrorData {
+  return data.type === "error";
+}
+
+// =====================================================
+// PRODUCT CONDITION TYPES
+// =====================================================
+
 export type ProductCondition = "new" | "excellent" | "good" | "fair" | "poor";
 
-// Item Condition Types - What appears on the website
 export type ItemCondition =
   | "new"
   | "open-box"
@@ -190,13 +287,11 @@ export const ITEM_CONDITIONS: { value: ItemCondition; label: string }[] = [
   { value: "for-parts", label: "For Parts or Not Working" },
 ];
 
-// Human inspection condition data
 export interface ConditionInspection {
   itemCondition: ItemCondition;
   productCondition: string; // Human-entered details like "missing button", "scratched on left side"
 }
 
-// Condition Multipliers
 export const CONDITION_MULTIPLIERS: Record<ProductCondition, number> = {
   new: 0.85,
   excellent: 0.75,
@@ -205,7 +300,43 @@ export const CONDITION_MULTIPLIERS: Record<ProductCondition, number> = {
   poor: 0.35,
 };
 
-// WordPress/WooCommerce Publishing Types
+// =====================================================
+// UPLOAD STATE TYPES
+// =====================================================
+
+export interface UploadState {
+  stage: UploadStage;
+  currentPhase: ProcessingPhase;
+  progress: number;
+  statusMessage: string;
+  analysisResult: ProductAnalysis | null;
+  msrpData: MSRPData | null;
+  specificationsData: ProductSpecifications | null;
+  competitiveData: CompetitiveData | null;
+  pricingSuggestion: PricingSuggestion | null;
+  seoData: SEOData | null;
+  selectedCondition: ProductCondition;
+  conditionInspection: ConditionInspection;
+  customPrice: string;
+  selectedPlatforms: string[];
+  productStatus: ProductStatus;
+  productId?: string; // Track the created product ID
+  imageUrls?: string[]; // Track uploaded image URLs
+}
+
+// =====================================================
+// PUBLISHING TYPES
+// =====================================================
+
+export type PublishingPlatform = "wordpress" | "ebay" | "facebook" | "google";
+
+export interface PublishingPlatformConfig {
+  id: PublishingPlatform;
+  name: string;
+  icon: string;
+  description: string;
+}
+
 export type ProductStatus = "draft" | "pending" | "private" | "publish";
 
 export interface WordPressPublishData {
@@ -231,7 +362,10 @@ export interface PublishResponse {
   platform: string;
 }
 
-// Dashboard Types
+// =====================================================
+// DASHBOARD TYPES
+// =====================================================
+
 export type ProductPipelineStatus =
   | "uploading"
   | "processing"
@@ -268,4 +402,56 @@ export interface DashboardFilters {
   search: string;
   page: number;
   itemsPerPage: number;
+}
+
+// =====================================================
+// UI COMPONENT TYPES
+// =====================================================
+
+export interface PhaseStep {
+  id: number;
+  title: string;
+  subtitle: string;
+  description: string;
+  icon: React.ComponentType<{ className?: string }>;
+  color: string;
+  bgColor: string;
+  borderColor: string;
+}
+
+export interface UploadDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess?: () => void; // Called when publish is successful
+  files: File[];
+}
+
+// =====================================================
+// API RESPONSE TYPES
+// =====================================================
+
+export interface APIResponse<T> {
+  success: boolean;
+  data?: T;
+  error?: string;
+}
+
+// =====================================================
+// LEGACY COMPATIBILITY (Deprecated - Use StreamingData)
+// =====================================================
+
+// @deprecated Use StreamingData union type instead
+export interface LegacyStreamingData {
+  type:
+    | "progress"
+    | "status"
+    | "analysis"
+    | "msrp"
+    | "specifications"
+    | "competitive"
+    | "complete"
+    | "error";
+  value?: number;
+  message?: string;
+  result?: unknown;
 }

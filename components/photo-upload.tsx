@@ -11,6 +11,12 @@ export function PhotoUpload() {
   const [files, setFiles] = useState<File[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [mounted, setMounted] = useState(false);
+
+  // Handle mounting to prevent hydration issues
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     setFiles((prev) => {
@@ -72,6 +78,22 @@ export function PhotoUpload() {
     clearAllFiles();
   };
 
+  // Don't render file previews until mounted to prevent hydration issues
+  if (!mounted) {
+    return (
+      <div className="p-3 sm:p-6">
+        <div
+          className="border-2 border-dashed rounded-lg p-6 sm:p-8 text-center cursor-pointer transition-colors border-border hover:border-primary"
+        >
+          <Upload className="mx-auto h-10 w-10 sm:h-12 sm:w-12 text-muted-foreground" />
+          <p className="mt-2 text-sm text-muted-foreground px-2">
+            Drag and drop some files here, or click to select files
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-3 sm:p-6">
       <div
@@ -93,7 +115,7 @@ export function PhotoUpload() {
       </div>
 
       {files.length > 0 && (
-        <div className="mt-4 sm:mt-6">
+        <div className="mt-4 sm:mt-6" suppressHydrationWarning>
           <div className="flex items-center justify-between mb-3 sm:mb-4">
             <h3 className="text-base sm:text-lg font-medium">
               Selected Files:
@@ -111,18 +133,20 @@ export function PhotoUpload() {
           <ul className="space-y-2">
             {files.map((file, index) => (
               <li
-                key={index}
+                key={`${file.name}-${index}`}
                 className="flex items-center gap-3 p-2 sm:p-3 rounded-md bg-muted/50"
               >
                 {/* Image Preview */}
                 <div className="shrink-0 relative w-10 h-10 sm:w-12 sm:h-12">
-                  <Image
-                    src={previewUrls[index]}
-                    alt={`Preview of ${file.name}`}
-                    fill
-                    className="object-cover rounded border"
-                    sizes="(max-width: 640px) 40px, 48px"
-                  />
+                  {previewUrls[index] && (
+                    <Image
+                      src={previewUrls[index]}
+                      alt={`Preview of ${file.name}`}
+                      fill
+                      className="object-cover rounded border"
+                      sizes="(max-width: 640px) 40px, 48px"
+                    />
+                  )}
                 </div>
 
                 {/* File Info */}
