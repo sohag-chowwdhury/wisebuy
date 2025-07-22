@@ -1,13 +1,13 @@
-/ app/api/products/[id]/pause/route.ts
+// app/api/products/[id]/pause/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/supabase/server'
 
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = createServerClient()
+    const supabase = await createClient()
     const productId = params.id
 
     // Update product status to paused

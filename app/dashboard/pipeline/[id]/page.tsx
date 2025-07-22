@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useParams } from "next/navigation";
+import { useProductDetails } from "@/lib/supabase/hooks";
 import { MainLayout } from "@/components/main-layout";
 import { PipelineStepper } from "@/components/pipeline-stepper";
 import {
@@ -58,86 +59,85 @@ interface PhaseState {
   isRunning: boolean;
 }
 
-// Mock product data
-const mockProduct = {
-  id: "1",
-  name: "iPhone 13 Pro Max",
-  model: "Apple iPhone 13 Pro Max 128GB Sierra Blue",
-  createdAt: "2024-01-15T10:30:00Z",
-  platforms: ["WordPress", "Facebook Marketplace", "eBay"],
-};
+// Interface for product data from API
+interface ProductDetail {
+  id: string;
+  name: string;
+  model: string;
+  brand?: string;
+  category?: string;
+  status: string;
+  currentPhase: number;
+  createdAt: string;
+  updatedAt: string;
+  images: any[];
+  analysisData: any;
+  marketData: any;
+  seoData: any;
+  listings: any[];
+  phases: any[];
+  logs: any[];
+}
 
-// Initial mock data for all phases
-const initialProductAnalysisData: ProductAnalysisData = {
-  productName: "iPhone 13 Pro Max",
-  model: "Apple iPhone 13 Pro Max 128GB Sierra Blue",
-  confidence: 96,
-  itemCondition: "good",
-  conditionDetails:
-    "Minor scratches on the back corner and slight wear on edges. Screen is in perfect condition with no scratches or cracks. All functions work perfectly.",
-};
-
+// Default initial data (will be replaced by API data)
 const initialMarketResearchData: MarketResearchData = {
   marketResearch: {
-    amazonPrice: 849.99,
-    amazonLink: "https://amazon.com/dp/B09G99CW2F",
-    msrp: 1099.0,
-    competitivePrice: 735.0,
+    amazonPrice: 0,
+    amazonLink: "",
+    msrp: 0,
+    competitivePrice: 0,
   },
   specifications: {
-    brand: "Apple",
-    category: "Smartphone",
-    year: "2021",
-    weight: "8.46 oz (240 g)",
-    dimensions: "6.33 × 3.07 × 0.30 in",
+    brand: "Unknown",
+    category: "General",
+    year: "Unknown",
+    weight: "Unknown",
+    dimensions: "Unknown",
   },
 };
 
 const initialSEOAnalysisData: SEOAnalysisData = {
-  seoTitle: "Apple iPhone 13 Pro Max 128GB Sierra Blue - Unlocked",
-  urlSlug: "apple-iphone-13-pro-max-128gb-sierra-blue-unlocked",
-  metaDescription:
-    "Buy Apple iPhone 13 Pro Max 128GB in Sierra Blue. Unlocked, good condition with A15 Bionic chip, Pro camera system, and all-day battery.",
-  keywords: [
-    "iPhone 13 Pro Max",
-    "Apple iPhone",
-    "128GB iPhone",
-    "Sierra Blue",
-    "unlocked iPhone",
-    "smartphone",
-  ],
-  tags: ["smartphones", "apple", "premium", "unlocked", "camera phone"],
+  seoTitle: "",
+  urlSlug: "",
+  metaDescription: "",
+  keywords: [],
+  tags: [],
 };
 
 const initialProductListingData: ProductListingData = {
-  images: ["image1.jpg", "image2.jpg", "image3.jpg"],
-  productTitle:
-    "Apple iPhone 13 Pro Max 128GB Sierra Blue - Unlocked, Good Condition",
-  price: 735.0,
-  publishingStatus: "ready-to-publish",
-  brand: "Apple",
-  category: "Smartphone",
+  images: [],
+  productTitle: "",
+  price: 0,
+  publishingStatus: "draft",
+  brand: "Unknown",
+  category: "General",
   itemCondition: "good",
-  productDescription:
-    "Experience the power of iPhone 13 Pro Max with its stunning 6.7-inch ProMotion display and advanced A15 Bionic chip. This device features a Pro camera system with macro photography, Cinematic mode, and exceptional low-light performance. The device is in good condition with minor cosmetic wear but full functionality.",
-  keyFeatures: [
-    "6.7-inch Super Retina XDR display with ProMotion",
-    "A15 Bionic chip with 6-core CPU",
-    "Pro camera system with 48MP main camera",
-    "Up to 28 hours video playback",
-    "5G connectivity",
-    "Face ID for secure authentication",
-  ],
+  productDescription: "",
+  keyFeatures: [],
   channels: {
-    wordpress: true,
-    facebook: true,
-    ebay: true,
+    wordpress: false,
+    facebook: false,
+    ebay: false,
     amazon: false,
   },
 };
 
 export default function ProcessingPipeline() {
   const router = useRouter();
+  const params = useParams();
+  const productId = params.id as string;
+
+  // Use real-time product details hook
+  const { 
+    product: realtimeProduct, 
+    phases: realtimePhases, 
+    logs: realtimeLogs, 
+    loading: isLoading, 
+    error 
+  } = useProductDetails(productId);
+
+  // Legacy product state (keep for backward compatibility)
+  const [product, setProduct] = useState<ProductDetail | null>(null);
 
   // Pipeline state
   const [currentStep, setCurrentStep] = useState(1);
@@ -148,9 +148,14 @@ export default function ProcessingPipeline() {
     4: { status: "pending", isRunning: false },
   });
 
-  // Phase data states
-  const [productAnalysisData, setProductAnalysisData] =
-    useState<ProductAnalysisData>(initialProductAnalysisData);
+  // Phase data states (will be populated from API)
+  const [productAnalysisData, setProductAnalysisData] = useState<ProductAnalysisData>({
+    productName: "",
+    model: "",
+    confidence: 0,
+    itemCondition: "good",
+    conditionDetails: "",
+  });
   const [marketResearchData, setMarketResearchData] =
     useState<MarketResearchData>(initialMarketResearchData);
   const [seoAnalysisData, setSEOAnalysisData] = useState<SEOAnalysisData>(
@@ -158,6 +163,56 @@ export default function ProcessingPipeline() {
   );
   const [productListingData, setProductListingData] =
     useState<ProductListingData>(initialProductListingData);
+
+  // Update component state when real-time data changes
+  useEffect(() => {
+    if (realtimeProduct) {
+      // Convert real-time product to legacy format for compatibility
+      const productData = {
+        ...realtimeProduct,
+        currentPhase: realtimeProduct.current_phase,
+        analysisData: {
+          productName: realtimeProduct.name,
+          model: realtimeProduct.model,
+          confidence: realtimeProduct.ai_confidence || 85,
+          itemCondition: "good",
+          conditionDetails: "Product analyzed and in good condition"
+        },
+        marketData: null, // Will be populated from separate API if needed
+        seoData: null,
+        images: [],
+        listings: []
+      };
+      
+      setProduct(productData);
+
+      // Update pipeline states based on real-time phases
+      if (realtimePhases && realtimePhases.length > 0) {
+        const newPhaseStates: Record<number, PhaseState> = {};
+        realtimePhases.forEach((phase) => {
+          newPhaseStates[phase.phase_number] = {
+            status: phase.status as PhaseStatus,
+            isRunning: phase.status === 'running'
+          };
+        });
+        setPhaseStates(newPhaseStates);
+      }
+
+      // Update current step
+      if (realtimeProduct.current_phase) {
+        setCurrentStep(realtimeProduct.current_phase);
+      }
+
+      // Set basic analysis data
+      setProductAnalysisData({
+        productName: realtimeProduct.name || "",
+        model: realtimeProduct.model || "",
+        confidence: realtimeProduct.ai_confidence || 85,
+        itemCondition: "good",
+        conditionDetails: "Product analyzed and in good condition",
+      });
+    }
+  }, [realtimeProduct, realtimePhases]);
 
   // Navigation handlers
   const handleStepClick = (stepId: number) => {
@@ -310,8 +365,12 @@ export default function ProcessingPipeline() {
             Back to Dashboard
           </Button>
           <div className="flex-1">
-            <h1 className="text-2xl font-bold">{mockProduct.name}</h1>
-            <p className="text-muted-foreground">{mockProduct.model}</p>
+            <h1 className="text-2xl font-bold">
+              {isLoading ? "Loading..." : product?.name || "Product Not Found"}
+            </h1>
+            <p className="text-muted-foreground">
+              {isLoading ? "Loading details..." : product?.model || "Model Unknown"}
+            </p>
           </div>
         </div>
 
@@ -341,11 +400,17 @@ export default function ProcessingPipeline() {
                   </Badge>
                 </div>
                 <div className="flex gap-2">
-                  {mockProduct.platforms.map((platform) => (
-                    <Badge key={platform} variant="outline" className="text-xs">
-                      {platform}
+                  {product?.listings && product.listings.length > 0 ? (
+                    product.listings.map((listing: any) => (
+                      <Badge key={listing.id} variant="outline" className="text-xs">
+                        {listing.platform}
+                      </Badge>
+                    ))
+                  ) : (
+                    <Badge variant="outline" className="text-xs">
+                      No platforms configured
                     </Badge>
-                  ))}
+                  )}
                 </div>
               </div>
             </div>
@@ -360,8 +425,34 @@ export default function ProcessingPipeline() {
           onStepClick={handleStepClick}
         />
 
+        {/* Loading State */}
+        {isLoading && (
+          <Card>
+            <CardContent className="p-6 text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Loading product data...</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Error State */}
+        {error && !isLoading && (
+          <Card>
+            <CardContent className="p-6 text-center">
+              <div className="text-red-500 mb-4">⚠️</div>
+              <h3 className="text-lg font-medium mb-2 text-red-600">Error Loading Product</h3>
+              <p className="text-muted-foreground mb-4">{error}</p>
+              <Button onClick={() => router.back()} variant="outline">
+                Back to Dashboard
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Current Phase Form */}
-        <div className="min-h-[600px]">{renderCurrentPhase()}</div>
+        {!isLoading && !error && product && (
+          <div className="min-h-[600px]">{renderCurrentPhase()}</div>
+        )}
       </div>
     </MainLayout>
   );

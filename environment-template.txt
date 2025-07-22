@@ -1,0 +1,47 @@
+# ===================================
+# FlipForge Environment Configuration
+# ===================================
+
+# =============================
+# SUPABASE CONFIGURATION
+# =============================
+# Get these from your Supabase project settings -> API
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
+
+# =============================
+# AI SERVICES API KEYS
+# =============================
+# Get from: https://console.anthropic.com/
+ANTHROPIC_API_KEY=sk-ant-your-anthropic-key-here
+
+# Get from: https://aistudio.google.com/app/apikey
+GEMINI_API_KEY=your-gemini-api-key-here
+
+# =============================
+# APPLICATION CONFIGURATION
+# =============================
+# For production deployment
+NEXT_PUBLIC_BASE_URL=http://154.53.32.15:3001
+
+# For development
+# NEXT_PUBLIC_BASE_URL=http://localhost:3000
+
+# =============================
+# WORDPRESS/WOOCOMMERCE (OPTIONAL)
+# =============================
+# Only needed if using WordPress publishing features
+WC_CONSUMER_KEY=ck_your-woocommerce-consumer-key
+WC_CONSUMER_SECRET=cs_your-woocommerce-consumer-secret
+WP_DOMAIN=https://your-wordpress-site.com
+WP_USERNAME=your-wp-username
+WP_APP_PASSWORD=your-wp-application-password
+
+# =============================
+# DEPLOYMENT NOTES
+# =============================
+# 1. Copy this content to .env.local on your server
+# 2. Replace all placeholder values with your actual credentials
+# 3. Never commit .env.local to version control
+# 4. Restart your application after making changes 

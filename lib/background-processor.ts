@@ -195,7 +195,7 @@ class BackgroundProcessor {
     // Simulate market research (replace with actual implementation)
     await this.simulateAsyncWork(3000);
 
-    // Mock market research data
+    // Mock market research data with new fields
     const marketData = {
       average_market_price: Math.floor(Math.random() * 500) + 100,
       price_range_min: Math.floor(Math.random() * 200) + 50,
@@ -203,7 +203,36 @@ class BackgroundProcessor {
       market_demand: ['high', 'medium', 'low'][Math.floor(Math.random() * 3)],
       competitor_count: Math.floor(Math.random() * 20) + 5,
       trending_score: Math.floor(Math.random() * 100),
-      seasonal_factor: Math.random() * 2
+      seasonal_factor: Math.random() * 2,
+      
+      // New required fields
+      brand: product.name?.split(' ')[0] || 'Unknown',
+      year: Math.floor(Math.random() * 10) + 2015, // Random year between 2015-2024
+      weight: `${(Math.random() * 5 + 0.5).toFixed(1)} lbs`,
+      dimensions: `${Math.floor(Math.random() * 15 + 5)} x ${Math.floor(Math.random() * 10 + 3)} x ${Math.floor(Math.random() * 8 + 2)} inches`,
+      
+      // Additional product specification fields
+      manufacturer: product.name?.split(' ')[0] || 'Unknown',
+      model_number: product.model || 'Unknown',
+      color: ['Black', 'White', 'Silver', 'Gray', 'Blue'][Math.floor(Math.random() * 5)],
+      material: ['Plastic', 'Metal', 'Stainless Steel', 'Aluminum', 'Mixed'][Math.floor(Math.random() * 5)],
+      
+      // Structured data
+      weight_structured: {
+        value: parseFloat((Math.random() * 5 + 0.5).toFixed(1)),
+        unit: 'lbs',
+        display: `${(Math.random() * 5 + 0.5).toFixed(1)} lbs`
+      },
+      dimensions_structured: {
+        length: { value: Math.floor(Math.random() * 15 + 5), unit: 'inches' },
+        width: { value: Math.floor(Math.random() * 10 + 3), unit: 'inches' },
+        height: { value: Math.floor(Math.random() * 8 + 2), unit: 'inches' }
+      },
+      specifications: {
+        features: ['High Quality', 'Durable', 'Easy to Use'],
+        warranty: '1 year',
+        condition: 'Good'
+      }
     };
 
     // Save market research data
@@ -396,6 +425,38 @@ class BackgroundProcessor {
 
     await this.logPipelineEvent(productId, 4, 'info', 'Product processing completed', 'complete_product');
     console.log(`🎉 [BACKGROUND] Product ${productId} fully processed!`);
+
+    // Automatically trigger AI market research after product completion
+    try {
+      console.log(`🔍 [BACKGROUND] Triggering automatic market research for completed product: ${productId}`);
+      
+      // Call the market research API in the background
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+      const researchResponse = await fetch(`${baseUrl}/api/dashboard/products/${productId}/research`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (researchResponse.ok) {
+        const researchResult = await researchResponse.json();
+        console.log(`✅ [BACKGROUND] Market research completed automatically:`, researchResult.message);
+        
+        // Log the successful research
+        await this.logPipelineEvent(
+          productId, 
+          4, // Log as phase 4 completion event
+          'info', 
+          `Auto market research: Found ${researchResult.data?.amazonResults || 0} Amazon + ${researchResult.data?.ebayResults || 0} eBay results`, 
+          'auto_market_research'
+        );
+      } else {
+        console.warn(`⚠️ [BACKGROUND] Market research failed for ${productId}:`, await researchResponse.text());
+      }
+      
+    } catch (researchError) {
+      console.warn(`⚠️ [BACKGROUND] Market research error for ${productId}:`, researchError);
+      // Don't fail the entire pipeline if market research fails
+    }
   }
 
   /**

@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { MainLayout } from "@/components/main-layout";
 import { PhotoUpload } from "@/components/photo-upload";
+import { useProducts } from "@/lib/supabase/hooks";
+import { RealTimePipelineStatus } from "@/components/real-time-pipeline-status";
 import {
   Card,
   CardContent,
@@ -16,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "sonner";
 import {
   Search,
   MoreHorizontal,
@@ -28,6 +31,7 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  Database,
 } from "lucide-react";
 import {
   DashboardStats,
@@ -36,94 +40,24 @@ import {
   ProductPipelineStatus,
 } from "@/lib/types";
 
-// Mock data with updated structure
-const mockStats: DashboardStats = {
-  totalProcessing: 2,
-  totalPaused: 0,
-  totalError: 1,
-  totalCompleted: 1,
-  totalPublished: 0,
-};
-
-const mockProducts: ProductItem[] = [
-  {
-    id: "1",
-    name: "iPhone 13 Pro Max",
-    model: "Apple iPhone 13 Pro Max 128GB",
-    status: "completed",
-    currentPhase: 4,
-    progress: 100,
-    createdAt: "2024-01-15T10:30:00Z",
-    updatedAt: "2024-01-15T11:15:00Z",
-    price: 899,
-    platforms: ["wordpress", "facebook"],
-    thumbnailUrl: "/api/placeholder/80/80",
-  },
-  {
-    id: "2",
-    name: "MacBook Air M2",
-    model: "Apple MacBook Air M2 256GB",
-    status: "processing",
-    currentPhase: 3,
-    progress: 65,
-    createdAt: "2024-01-15T09:45:00Z",
-    updatedAt: "2024-01-15T11:10:00Z",
-    platforms: ["wordpress", "facebook", "ebay"],
-    thumbnailUrl: "/api/placeholder/80/80",
-  },
-  {
-    id: "3",
-    name: "Sony WH-1000XM4",
-    model: "Sony WH-1000XM4 Wireless Headphones",
-    status: "error",
-    currentPhase: 2,
-    progress: 25,
-    createdAt: "2024-01-14T14:20:00Z",
-    updatedAt: "2024-01-14T16:45:00Z",
-    error: "Failed to fetch product specifications from manufacturer API",
-    platforms: ["wordpress", "facebook"],
-    thumbnailUrl: "/api/placeholder/80/80",
-  },
-  {
-    id: "4",
-    name: "iPad Pro 12.9",
-    model: "Apple iPad Pro 12.9-inch M2",
-    status: "processing",
-    currentPhase: 1,
-    progress: 0,
-    createdAt: "2024-01-15T08:15:00Z",
-    updatedAt: "2024-01-15T08:30:00Z",
-    platforms: ["wordpress"],
-    thumbnailUrl: "/api/placeholder/80/80",
-  },
-  {
-    id: "5",
-    name: "Samsung Galaxy S24 Ultra",
-    model: "Samsung Galaxy S24 Ultra 512GB",
-    status: "completed",
-    currentPhase: 4,
-    progress: 100,
-    createdAt: "2024-01-13T14:20:00Z",
-    updatedAt: "2024-01-13T18:45:00Z",
-    price: 1199,
-    platforms: ["wordpress", "ebay"],
-    thumbnailUrl: "/api/placeholder/80/80",
-  },
-  {
-    id: "6",
-    name: "AirPods Pro 2nd Gen",
-    model: "Apple AirPods Pro (2nd Generation)",
-    status: "processing",
-    currentPhase: 2,
-    progress: 45,
-    createdAt: "2024-01-16T09:30:00Z",
-    updatedAt: "2024-01-16T10:15:00Z",
-    platforms: ["wordpress", "facebook"],
-    thumbnailUrl: "/api/placeholder/80/80",
-  },
-];
+// API Data Management
+interface DashboardData {
+  stats: DashboardStats;
+  products: ProductItem[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
 
 const statusConfig = {
+  uploaded: {
+    label: "Uploaded",
+    icon: Activity,
+    variant: "secondary" as const,
+  },
   uploading: {
     label: "Uploading",
     icon: Activity,
@@ -131,6 +65,26 @@ const statusConfig = {
   },
   processing: {
     label: "Processing",
+    icon: Clock,
+    variant: "secondary" as const,
+  },
+  phase_1: {
+    label: "Phase 1",
+    icon: Clock,
+    variant: "secondary" as const,
+  },
+  phase_2: {
+    label: "Phase 2",
+    icon: Clock,
+    variant: "secondary" as const,
+  },
+  phase_3: {
+    label: "Phase 3",
+    icon: Clock,
+    variant: "secondary" as const,
+  },
+  phase_4: {
+    label: "Phase 4",
     icon: Clock,
     variant: "secondary" as const,
   },
@@ -144,15 +98,20 @@ const statusConfig = {
     icon: CheckCircle,
     variant: "default" as const,
   },
+  published: {
+    label: "Published",
+    icon: TrendingUp,
+    variant: "default" as const,
+  },
   error: {
     label: "Error",
     icon: AlertCircle,
     variant: "destructive" as const,
   },
-  published: {
-    label: "Published",
-    icon: TrendingUp,
-    variant: "default" as const,
+  cancelled: {
+    label: "Cancelled",
+    icon: AlertCircle,
+    variant: "destructive" as const,
   },
 };
 
@@ -165,31 +124,215 @@ const phaseLabels = {
 
 export default function Dashboard() {
   const router = useRouter();
+  
+  // Real-time products hook for live updates
+  const { products: realtimeProducts, loading: productsLoading, error: productsError } = useProducts();
+  
   const [filters, setFilters] = useState<DashboardFilters>({
     status: "all",
     search: "",
     page: 1,
-    itemsPerPage: 3,
+    itemsPerPage: 25,  // Show more products per page to see all
   });
-
-  const filteredProducts = mockProducts.filter((product) => {
-    const matchesStatus =
-      filters.status === "all" || product.status === filters.status;
-    const matchesSearch =
-      product.name.toLowerCase().includes(filters.search.toLowerCase()) ||
-      product.model.toLowerCase().includes(filters.search.toLowerCase());
-    return matchesStatus && matchesSearch;
+  
+  // State for dashboard data
+  const [dashboardData, setDashboardData] = useState<DashboardData>({
+    stats: {
+      totalProducts: 0,
+      totalProcessing: 0,
+      totalPaused: 0,
+      totalError: 0,
+      totalCompleted: 0,
+      totalPublished: 0,
+    },
+    products: [],
+    pagination: {
+      page: 1,
+      limit: 3,
+      total: 0,
+      totalPages: 0,
+    },
   });
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Pagination calculations
-  const totalItems = filteredProducts.length;
-  const totalPages = Math.ceil(totalItems / filters.itemsPerPage);
-  const startIndex = (filters.page - 1) * filters.itemsPerPage;
-  const endIndex = startIndex + filters.itemsPerPage;
-  const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
+  // Fetch dashboard stats
+  const fetchStats = async () => {
+    try {
+      const response = await fetch('/api/dashboard/stats');
+      if (!response.ok) {
+        throw new Error('Failed to fetch stats');
+      }
+      const stats = await response.json();
+      setDashboardData(prev => ({ ...prev, stats }));
+    } catch (err) {
+      console.error('Error fetching stats:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch stats');
+    }
+  };
+
+  // Fetch dashboard products
+  const fetchProducts = async () => {
+    try {
+      const params = new URLSearchParams({
+        page: filters.page.toString(),
+        limit: filters.itemsPerPage.toString(),
+      });
+      
+      if (filters.status !== 'all') {
+        params.append('status', filters.status);
+      }
+      
+      if (filters.search) {
+        params.append('search', filters.search);
+      }
+
+      const response = await fetch(`/api/dashboard/products?${params}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch products');
+      }
+      
+      const data = await response.json();
+      setDashboardData(prev => ({ 
+        ...prev, 
+        products: data.products,
+        pagination: data.pagination 
+      }));
+    } catch (err) {
+      console.error('Error fetching products:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch products');
+    }
+  };
+
+  // Fetch stats from API
+  const refreshStats = async () => {
+    try {
+      const response = await fetch('/api/dashboard/stats');
+      if (response.ok) {
+        const stats = await response.json();
+        setDashboardData(prev => ({ ...prev, stats }));
+        console.log('📊 [Dashboard] Stats refreshed from API:', stats);
+      }
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    }
+  };
+
+  // Initial stats fetch only - rely on real-time updates for changes
+  useEffect(() => {
+    refreshStats();
+  }, []);
+
+  // Update dashboard data when real-time products change
+  useEffect(() => {
+    console.log('📊 [Dashboard] useEffect triggered:', {
+      realtimeProducts: realtimeProducts?.length || 0,
+      productsLoading,
+      productsError,
+    });
+
+    if (realtimeProducts && realtimeProducts.length > 0) {
+      console.log('✅ [Dashboard] Processing', realtimeProducts.length, 'products');
+      console.log('📊 [Dashboard] Product statuses:', realtimeProducts.map(p => ({ id: p.id, name: p.name, status: p.status })));
+      
+      // Don't refresh stats - use real-time calculated stats instead
+      
+      // Calculate real-time stats from products as fallback
+      const processingStatuses = ['uploaded', 'processing', 'phase_1', 'phase_2', 'phase_3', 'phase_4'];
+      const stats = {
+        totalProducts: realtimeProducts.length, // ← Fixed: Include total count
+        totalProcessing: realtimeProducts.filter(p => processingStatuses.includes(p.status)).length,
+        totalPaused: realtimeProducts.filter(p => p.status === 'paused').length,
+        totalError: realtimeProducts.filter(p => p.status === 'error').length,
+        totalCompleted: realtimeProducts.filter(p => p.status === 'completed').length,
+        totalPublished: realtimeProducts.filter(p => p.status === 'published').length,
+      };
+      
+      // Apply filters to products
+      let filteredProducts = realtimeProducts;
+      
+      if (filters.status !== "all") {
+        filteredProducts = realtimeProducts.filter(p => p.status === filters.status);
+      }
+      
+      if (filters.search) {
+        const searchTerm = filters.search.toLowerCase();
+        filteredProducts = filteredProducts.filter(p => 
+          p.name?.toLowerCase().includes(searchTerm) ||
+          p.model?.toLowerCase().includes(searchTerm) ||
+          p.brand?.toLowerCase().includes(searchTerm)
+        );
+      }
+      
+      // Calculate pagination
+      const totalFiltered = filteredProducts.length;
+      const totalPages = Math.ceil(totalFiltered / filters.itemsPerPage);
+      const startIndex = (filters.page - 1) * filters.itemsPerPage;
+      const paginatedProducts = filteredProducts.slice(startIndex, startIndex + filters.itemsPerPage);
+      
+      setDashboardData({
+        stats,
+        products: paginatedProducts.map(p => ({
+          id: p.id,
+          name: p.name || 'Untitled Product',
+          model: p.model || 'Unknown Model',
+          status: p.status as ProductPipelineStatus,
+          currentPhase: (p.current_phase || 1) as any, // Type fix - will be properly typed later
+          progress: p.progress || 0,
+          imageUrl: '', // Will be populated from images if needed
+          createdAt: p.created_at,
+          updatedAt: p.updated_at,
+          isProcessing: p.status === 'processing',
+          aiConfidence: p.ai_confidence || 0,
+        })),
+        pagination: {
+          page: filters.page,
+          limit: filters.itemsPerPage,
+          total: totalFiltered,
+          totalPages,
+        },
+      });
+    } else {
+      console.log('❌ [Dashboard] No products found or empty array');
+      // Set empty state but keep existing pagination structure
+      setDashboardData(prev => ({
+        ...prev,
+        products: [],
+        stats: {
+          totalProducts: 0, // ← Fixed: Include total count in empty state too
+          totalProcessing: 0,
+          totalPaused: 0,
+          totalError: 0,
+          totalCompleted: 0,
+          totalPublished: 0,
+        }
+      }));
+    }
+    
+    setIsLoading(productsLoading);
+    setError(productsError);
+  }, [realtimeProducts, filters, productsLoading, productsError]);
+
+  // Use the products from state (already filtered and paginated by API)
+  const paginatedProducts = dashboardData.products;
+  const { pagination } = dashboardData;
 
   const getStatusCount = (status: ProductPipelineStatus) => {
-    return mockProducts.filter((p) => p.status === status).length;
+    // For now, we calculate this from the stats data
+    switch (status) {
+      case 'processing':
+        return dashboardData.stats.totalProcessing;
+      case 'completed':
+        return dashboardData.stats.totalCompleted;
+      case 'error':
+        return dashboardData.stats.totalError;
+      case 'paused':
+        return dashboardData.stats.totalPaused;
+      case 'published':
+        return dashboardData.stats.totalPublished;
+      default:
+        return 0;
+    }
   };
 
   const handlePageChange = (newPage: number) => {
@@ -206,6 +349,56 @@ export default function Dashboard() {
 
   const handleProductClick = (productId: string) => {
     router.push(`/dashboard/pipeline/${productId}`);
+  };
+
+  const handleMarketResearch = async (productId: string, productName: string) => {
+    try {
+      // Show loading toast
+      const loadingToast = toast.loading(`🔍 Researching ${productName} on Amazon & eBay...`);
+      
+      console.log('🚀 [DASHBOARD] Starting market research for:', productId, productName);
+      
+      // Call the market research API
+      const response = await fetch(`/api/dashboard/products/${productId}/research`, {
+        method: 'POST',
+      });
+      
+      const result = await response.json();
+      
+      // Dismiss loading toast
+      toast.dismiss(loadingToast);
+      
+      if (result.success) {
+        const urlTypeEmoji = result.urlType === 'real' ? '🌐' : '⚠️';
+        const urlTypeText = result.urlType === 'real' ? 'REAL URLs' : 'FAKE URLs';
+        
+        toast.success(
+          `✅ Research completed! Found ${result.data.amazonResults + result.data.ebayResults} results (${urlTypeText}). Average price: $${result.data.averagePrice.toFixed(2)}`
+        );
+        
+        // Show warning for fake URLs
+        if (result.urlType === 'fake' && result.warning) {
+          setTimeout(() => {
+            toast.warning(
+              `${urlTypeEmoji} ${result.warning} Add SerpAPI or eBay API keys for working URLs.`,
+              { duration: 8000 }
+            );
+          }, 2000);
+        }
+        
+        // Refresh the dashboard data
+        await fetchProducts();
+        
+        console.log('✅ [DASHBOARD] Market research completed:', result.data);
+      } else {
+        toast.error(`❌ Research failed: ${result.message}`);
+      }
+      
+    } catch (error) {
+      toast.dismiss();
+      console.error('❌ [DASHBOARD] Market research error:', error);
+      toast.error(`❌ Failed to research ${productName}. Please try again.`);
+    }
   };
 
   const stopPropagation = (e: React.MouseEvent) => {
@@ -225,10 +418,72 @@ export default function Dashboard() {
               5-Stage Product Processing Pipeline
             </p>
           </div>
-          <Button variant="outline" className="flex items-center gap-2">
-            <Settings className="h-4 w-4" />
-            Pipeline Settings
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              className="flex items-center gap-2"
+              onClick={async () => {
+                try {
+                  const response = await fetch('/api/force-refresh', { method: 'POST' });
+                  const result = await response.json();
+                  if (result.success) {
+                    toast.success(`${result.message}`);
+                  } else {
+                    toast.error(result.error || 'Failed to refresh');
+                  }
+                } catch (error) {
+                  toast.error('Error refreshing dashboard');
+                }
+              }}
+            >
+              <Activity className="h-4 w-4" />
+              Fix & Refresh
+            </Button>
+            <Button 
+              variant="outline" 
+              className="flex items-center gap-2"
+              onClick={async () => {
+                try {
+                  const response = await fetch('/api/migrate-market-fields', { method: 'POST' });
+                  const result = await response.json();
+                  if (result.success) {
+                    toast.success(`Database updated! Added: ${result.fieldsAdded.join(', ')}`);
+                  } else {
+                    toast.error(result.error || 'Migration failed');
+                  }
+                } catch (error) {
+                  toast.error('Error running migration');
+                }
+              }}
+            >
+                             <Database className="h-4 w-4" />
+               Update Schema
+             </Button>
+            <Button 
+              variant="outline" 
+              className="flex items-center gap-2"
+              onClick={async () => {
+                try {
+                  const response = await fetch('/api/populate-market-fields', { method: 'POST' });
+                  const result = await response.json();
+                  if (result.success) {
+                    toast.success(`Data populated! Updated ${result.recordsUpdated} of ${result.recordsProcessed} records`);
+                  } else {
+                    toast.error(result.error || 'Population failed');
+                  }
+                } catch (error) {
+                  toast.error('Error populating data');
+                }
+              }}
+            >
+              <Package className="h-4 w-4" />
+              Fill Data
+            </Button>
+            <Button variant="outline" className="flex items-center gap-2">
+              <Settings className="h-4 w-4" />
+              Pipeline Settings
+            </Button>
+          </div>
         </div>
 
         {/* Stats Cards */}
@@ -241,7 +496,7 @@ export default function Dashboard() {
               <Package className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{mockProducts.length}</div>
+              <div className="text-2xl font-bold">{dashboardData.stats.totalProducts}</div>
             </CardContent>
           </Card>
 
@@ -254,7 +509,7 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {mockStats.totalProcessing}
+                {dashboardData.stats.totalProcessing}
               </div>
             </CardContent>
           </Card>
@@ -268,7 +523,7 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {mockStats.totalCompleted}
+                {dashboardData.stats.totalCompleted}
               </div>
             </CardContent>
           </Card>
@@ -281,10 +536,13 @@ export default function Dashboard() {
               <AlertCircle className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{mockStats.totalError}</div>
+              <div className="text-2xl font-bold">{dashboardData.stats.totalError}</div>
             </CardContent>
           </Card>
         </div>
+
+        {/* Real-time Pipeline Status */}
+        <RealTimePipelineStatus />
 
         {/* Upload Section */}
         <Card>
@@ -324,7 +582,7 @@ export default function Dashboard() {
             >
               <TabsList className="w-full">
                 <TabsTrigger value="all" className="flex-1">
-                  All ({mockProducts.length})
+                  All ({pagination.total})
                 </TabsTrigger>
                 <TabsTrigger value="processing" className="flex-1">
                   Processing ({getStatusCount("processing")})
@@ -341,7 +599,11 @@ export default function Dashboard() {
           <CardContent>
             <div className="space-y-4">
               {paginatedProducts.map((product) => {
-                const config = statusConfig[product.status];
+                const config = statusConfig[product.status] || {
+                  label: product.status || "Unknown",
+                  icon: Package,
+                  variant: "secondary" as const,
+                };
                 const StatusIcon = config.icon;
 
                 return (
@@ -405,12 +667,16 @@ export default function Dashboard() {
                             <div className="flex flex-wrap items-center gap-2 text-sm">
                               <CheckCircle className="h-4 w-4 text-green-600" />
                               <span>All stages complete</span>
-                              <span className="font-semibold text-green-600">
-                                $ {product.price}
-                              </span>
-                              <span className="text-muted-foreground">
-                                92% confidence
-                              </span>
+                              {product.price && (
+                                <span className="font-semibold text-green-600">
+                                  $ {product.price}
+                                </span>
+                              )}
+                              {product.analysisData?.confidence && (
+                                <span className="text-muted-foreground">
+                                  {product.analysisData.confidence}% confidence
+                                </span>
+                              )}
                             </div>
                           )}
 
@@ -422,12 +688,25 @@ export default function Dashboard() {
                                     product.currentPhase as keyof typeof phaseLabels
                                   ]
                                 }{" "}
-                                ({product.currentPhase}/5 completed)
+                                ({product.currentPhase}/4 completed)
                               </div>
                               <Progress
                                 value={product.progress}
                                 className="h-2"
                               />
+                              
+                              {/* Show current phase analysis data on mobile */}
+                              {product.analysisData?.confidence && product.currentPhase >= 1 && (
+                                <div className="text-xs text-muted-foreground">
+                                  AI Analysis: {product.analysisData.confidence}% • {product.analysisData.condition || 'condition unknown'}
+                                </div>
+                              )}
+                              
+                              {product.marketData?.averagePrice && product.currentPhase >= 2 && (
+                                <div className="text-xs text-muted-foreground">
+                                  Market: ${product.marketData.averagePrice} • {product.marketData.marketDemand || 'demand unknown'}
+                                </div>
+                              )}
                             </div>
                           )}
 
@@ -512,9 +791,11 @@ export default function Dashboard() {
                                 <span className="font-semibold text-green-600">
                                   $ {product.price}
                                 </span>
-                                <span className="text-muted-foreground">
-                                  92% confidence
-                                </span>
+                                {product.analysisData?.confidence && (
+                                  <span className="text-muted-foreground">
+                                    {product.analysisData.confidence}% confidence
+                                  </span>
+                                )}
                               </div>
                             </div>
                           )}
@@ -527,7 +808,7 @@ export default function Dashboard() {
                                     product.currentPhase as keyof typeof phaseLabels
                                   ]
                                 }{" "}
-                                ({product.currentPhase}/5 completed)
+                                ({product.currentPhase}/4 completed)
                               </div>
                               <Progress
                                 value={product.progress}
@@ -580,13 +861,26 @@ export default function Dashboard() {
                               {new Date(product.updatedAt).toLocaleDateString()}
                             </div>
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={stopPropagation}
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
+                                                      <div className="flex gap-1">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={(e) => {
+                                  stopPropagation(e);
+                                  handleMarketResearch(product.id, product.name);
+                                }}
+                                className="text-xs"
+                              >
+                                🔍 Research
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={stopPropagation}
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </div>
                         </div>
                       </div>
                     </CardContent>
@@ -595,8 +889,32 @@ export default function Dashboard() {
               })}
             </div>
 
+            {/* Loading State */}
+            {isLoading && (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                <p className="text-muted-foreground">Loading products...</p>
+              </div>
+            )}
+
+            {/* Error State */}
+            {error && !isLoading && (
+              <div className="text-center py-8">
+                <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+                <h3 className="text-lg font-medium mb-2 text-red-600">Error loading data</h3>
+                <p className="text-muted-foreground">{error}</p>
+                <Button 
+                  onClick={() => window.location.reload()} 
+                  variant="outline" 
+                  className="mt-4"
+                >
+                  Try Again
+                </Button>
+              </div>
+            )}
+
             {/* Empty State */}
-            {filteredProducts.length === 0 && (
+            {!isLoading && !error && paginatedProducts.length === 0 && (
               <div className="text-center py-8">
                 <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-medium mb-2">No products found</h3>
@@ -609,11 +927,11 @@ export default function Dashboard() {
             )}
 
             {/* Pagination */}
-            {filteredProducts.length > 0 && totalPages > 1 && (
+            {!isLoading && !error && paginatedProducts.length > 0 && pagination.totalPages > 1 && (
               <div className="flex flex-col sm:flex-row items-center justify-between pt-6 border-t gap-4">
                 <div className="text-sm text-muted-foreground order-2 sm:order-1">
-                  Showing {startIndex + 1} to {Math.min(endIndex, totalItems)}{" "}
-                  of {totalItems} products
+                  Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)}{" "}
+                  of {pagination.total} products
                 </div>
 
                 <div className="flex items-center gap-2 order-1 sm:order-2">
@@ -640,7 +958,7 @@ export default function Dashboard() {
                   </Button>
 
                   <div className="flex items-center gap-1 max-w-[200px] overflow-x-auto">
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                    {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map(
                       (page) => (
                         <Button
                           key={page}
@@ -661,7 +979,7 @@ export default function Dashboard() {
                     variant="outline"
                     size="sm"
                     onClick={() => handlePageChange(filters.page + 1)}
-                    disabled={filters.page === totalPages}
+                    disabled={filters.page === pagination.totalPages}
                     className="hidden sm:flex"
                   >
                     Next
@@ -673,7 +991,7 @@ export default function Dashboard() {
                     variant="outline"
                     size="sm"
                     onClick={() => handlePageChange(filters.page + 1)}
-                    disabled={filters.page === totalPages}
+                    disabled={filters.page === pagination.totalPages}
                     className="sm:hidden"
                   >
                     <ChevronRight className="h-4 w-4" />

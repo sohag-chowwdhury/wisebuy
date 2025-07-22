@@ -217,9 +217,19 @@ export function Phase4Form({
             {localData.images.map((image, index) => (
               <div
                 key={index}
-                className="aspect-square bg-muted rounded-lg flex items-center justify-center"
+                className="aspect-square bg-muted rounded-lg overflow-hidden"
               >
-                <span className="text-xs text-muted-foreground">{image}</span>
+                <img
+                  src={image}
+                  alt={`Product image ${index + 1}`}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    // Fallback for broken images
+                    e.currentTarget.style.display = 'none';
+                    e.currentTarget.parentElement!.innerHTML = 
+                      `<div class="w-full h-full flex items-center justify-center text-xs text-muted-foreground">Image not available</div>`;
+                  }}
+                />
               </div>
             ))}
             <div className="aspect-square border-2 border-dashed border-muted-foreground/25 rounded-lg flex items-center justify-center">

@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS products (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   
-  -- Basic product info
+  -- Basic product info (existing fields)
   name TEXT,
   model TEXT,
   
@@ -33,6 +33,56 @@ CREATE TABLE IF NOT EXISTS products (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Add missing columns to existing products table (safe to run multiple times)
+ALTER TABLE products ADD COLUMN IF NOT EXISTS brand TEXT;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS category TEXT;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS key_features TEXT[] DEFAULT '{}';
+ALTER TABLE products ADD COLUMN IF NOT EXISTS technical_specs JSONB DEFAULT '{}';
+ALTER TABLE products ADD COLUMN IF NOT EXISTS dimensions JSONB DEFAULT '{}';
+ALTER TABLE products ADD COLUMN IF NOT EXISTS model_variations TEXT[] DEFAULT '{}';
+ALTER TABLE products ADD COLUMN IF NOT EXISTS seo_title TEXT;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS meta_description TEXT;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS url_slug TEXT;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS keywords TEXT[] DEFAULT '{}';
+
+-- Add missing columns to existing seo_analysis_data table (safe to run multiple times)
+ALTER TABLE seo_analysis_data ADD COLUMN IF NOT EXISTS seo_score INTEGER DEFAULT 0 CHECK (seo_score >= 0 AND seo_score <= 100);
+ALTER TABLE seo_analysis_data ADD COLUMN IF NOT EXISTS search_volume INTEGER DEFAULT 0;
+ALTER TABLE seo_analysis_data ADD COLUMN IF NOT EXISTS keyword_difficulty INTEGER DEFAULT 0 CHECK (keyword_difficulty >= 0 AND keyword_difficulty <= 100);
+ALTER TABLE seo_analysis_data ADD COLUMN IF NOT EXISTS content_suggestions TEXT[] DEFAULT '{}';
+ALTER TABLE seo_analysis_data ADD COLUMN IF NOT EXISTS competitor_analysis JSONB DEFAULT '{}';
+ALTER TABLE seo_analysis_data ADD COLUMN IF NOT EXISTS title_length INTEGER DEFAULT 0;
+ALTER TABLE seo_analysis_data ADD COLUMN IF NOT EXISTS description_length INTEGER DEFAULT 0;
+ALTER TABLE seo_analysis_data ADD COLUMN IF NOT EXISTS keyword_density DECIMAL(5,2) DEFAULT 0.00;
+ALTER TABLE seo_analysis_data ADD COLUMN IF NOT EXISTS readability_score INTEGER DEFAULT 0;
+
+-- Add Amazon/eBay URL and competitive pricing columns to existing product_market_data table
+ALTER TABLE product_market_data ADD COLUMN IF NOT EXISTS amazon_price DECIMAL(10,2);
+ALTER TABLE product_market_data ADD COLUMN IF NOT EXISTS amazon_url TEXT;
+ALTER TABLE product_market_data ADD COLUMN IF NOT EXISTS amazon_verified BOOLEAN DEFAULT false;
+ALTER TABLE product_market_data ADD COLUMN IF NOT EXISTS amazon_last_checked TIMESTAMP WITH TIME ZONE;
+ALTER TABLE product_market_data ADD COLUMN IF NOT EXISTS amazon_confidence DECIMAL(3,2) DEFAULT 0.00;
+
+ALTER TABLE product_market_data ADD COLUMN IF NOT EXISTS ebay_price DECIMAL(10,2);
+ALTER TABLE product_market_data ADD COLUMN IF NOT EXISTS ebay_url TEXT;
+ALTER TABLE product_market_data ADD COLUMN IF NOT EXISTS ebay_verified BOOLEAN DEFAULT false;
+ALTER TABLE product_market_data ADD COLUMN IF NOT EXISTS ebay_last_checked TIMESTAMP WITH TIME ZONE;
+ALTER TABLE product_market_data ADD COLUMN IF NOT EXISTS ebay_confidence DECIMAL(3,2) DEFAULT 0.00;
+ALTER TABLE product_market_data ADD COLUMN IF NOT EXISTS ebay_seller_rating DECIMAL(3,2);
+
+-- Additional platform data (Facebook Marketplace, Mercari, etc.)
+ALTER TABLE product_market_data ADD COLUMN IF NOT EXISTS facebook_price DECIMAL(10,2);
+ALTER TABLE product_market_data ADD COLUMN IF NOT EXISTS facebook_url TEXT;
+ALTER TABLE product_market_data ADD COLUMN IF NOT EXISTS mercari_price DECIMAL(10,2);
+ALTER TABLE product_market_data ADD COLUMN IF NOT EXISTS mercari_url TEXT;
+
+-- Platform URL status and metadata
+ALTER TABLE product_market_data ADD COLUMN IF NOT EXISTS url_status_amazon TEXT DEFAULT 'unknown' CHECK (url_status_amazon IN ('active', 'expired', 'unavailable', 'unknown'));
+ALTER TABLE product_market_data ADD COLUMN IF NOT EXISTS url_status_ebay TEXT DEFAULT 'unknown' CHECK (url_status_ebay IN ('active', 'expired', 'unavailable', 'unknown'));
+ALTER TABLE product_market_data ADD COLUMN IF NOT EXISTS url_status_facebook TEXT DEFAULT 'unknown' CHECK (url_status_facebook IN ('active', 'expired', 'unavailable', 'unknown'));
+ALTER TABLE product_market_data ADD COLUMN IF NOT EXISTS url_status_mercari TEXT DEFAULT 'unknown' CHECK (url_status_mercari IN ('active', 'expired', 'unavailable', 'unknown'));
 
 -- =====================================================
 -- 2. PIPELINE PHASES TABLE
@@ -165,7 +215,76 @@ CREATE TABLE IF NOT EXISTS product_market_data (
 );
 
 -- =====================================================
--- 6. PRODUCT LISTINGS TABLE (Phase 3 Results)
+-- 6. SEO ANALYSIS DATA TABLE (Phase 4 Results)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS seo_analysis_data (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  product_id UUID REFERENCES products(id) ON DELETE CASCADE NOT NULL,
+  
+  -- SEO content
+  seo_title TEXT,
+  meta_description TEXT,
+  url_slug TEXT,
+  
+  -- Keywords and tags
+  keywords TEXT[] DEFAULT '{}',
+  tags TEXT[] DEFAULT '{}',
+  
+  -- SEO analytics and scoring
+  seo_score INTEGER DEFAULT 0 CHECK (seo_score >= 0 AND seo_score <= 100),
+  search_volume INTEGER DEFAULT 0,
+  keyword_difficulty INTEGER DEFAULT 0 CHECK (keyword_difficulty >= 0 AND keyword_difficulty <= 100),
+  
+  -- Content analysis
+  content_suggestions TEXT[] DEFAULT '{}',
+  competitor_analysis JSONB DEFAULT '{}',
+  
+  -- Advanced SEO metrics
+  title_length INTEGER DEFAULT 0,
+  description_length INTEGER DEFAULT 0,
+  keyword_density DECIMAL(5,2) DEFAULT 0.00,
+  readability_score INTEGER DEFAULT 0,
+  
+  -- Timestamps
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  
+  -- Ensure one SEO analysis per product
+  UNIQUE(product_id)
+);
+
+-- =====================================================
+-- 7. PRODUCT LISTING DATA TABLE (Phase 3 Results)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS product_listing_data (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  product_id UUID REFERENCES products(id) ON DELETE CASCADE NOT NULL,
+  
+  -- Listing content
+  product_title TEXT,
+  product_description TEXT,
+  key_features TEXT[] DEFAULT '{}',
+  
+  -- Product details
+  price DECIMAL(10,2),
+  brand TEXT,
+  category TEXT,
+  item_condition TEXT,
+  
+  -- Publishing
+  publishing_status TEXT DEFAULT 'draft' CHECK (publishing_status IN ('draft', 'ready', 'published', 'failed')),
+  channels JSONB DEFAULT '{}',
+  
+  -- Timestamps
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  
+  -- Ensure one listing data per product
+  UNIQUE(product_id)
+);
+
+-- =====================================================
+-- 8. PRODUCT LISTINGS TABLE (Platform-specific listings)
 -- =====================================================
 CREATE TABLE IF NOT EXISTS product_listings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -201,7 +320,7 @@ CREATE TABLE IF NOT EXISTS product_listings (
 );
 
 -- =====================================================
--- 7. PRODUCT MONITORING TABLE (Phase 4 Results)
+-- 9. PRODUCT MONITORING TABLE (Phase 4 Results)
 -- =====================================================
 CREATE TABLE IF NOT EXISTS product_monitoring (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -233,7 +352,7 @@ CREATE TABLE IF NOT EXISTS product_monitoring (
 );
 
 -- =====================================================
--- 8. PIPELINE LOGS TABLE
+-- 10. PIPELINE LOGS TABLE
 -- =====================================================
 CREATE TABLE IF NOT EXISTS pipeline_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -253,7 +372,7 @@ CREATE TABLE IF NOT EXISTS pipeline_logs (
 );
 
 -- =====================================================
--- 9. INDEXES FOR PERFORMANCE
+-- 11. INDEXES FOR PERFORMANCE
 -- =====================================================
 
 -- Products indexes
@@ -283,7 +402,7 @@ CREATE INDEX IF NOT EXISTS idx_pipeline_logs_created_at ON pipeline_logs(created
 CREATE INDEX IF NOT EXISTS idx_pipeline_logs_level ON pipeline_logs(log_level);
 
 -- =====================================================
--- 10. ROW LEVEL SECURITY (RLS) POLICIES
+-- 12. ROW LEVEL SECURITY (RLS) POLICIES
 -- =====================================================
 
 -- Enable RLS on all tables
@@ -407,7 +526,7 @@ FOR SELECT USING (
 );
 
 -- =====================================================
--- 11. DATABASE FUNCTIONS
+-- 13. DATABASE FUNCTIONS
 -- =====================================================
 
 -- Function to start a phase
@@ -523,7 +642,7 @@ CREATE TRIGGER update_product_monitoring_updated_at BEFORE UPDATE ON product_mon
 FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- =====================================================
--- 12. REAL-TIME SUBSCRIPTION SETUP
+-- 14. REAL-TIME SUBSCRIPTION SETUP
 -- =====================================================
 
 -- Enable real-time for key tables
@@ -533,7 +652,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE pipeline_logs;
 ALTER PUBLICATION supabase_realtime ADD TABLE product_listings;
 
 -- =====================================================
--- 13. STORAGE SETUP
+-- 15. STORAGE SETUP
 -- =====================================================
 
 -- Create storage bucket for product images
@@ -561,7 +680,7 @@ FOR DELETE USING (
 );
 
 -- =====================================================
--- 14. INITIAL DATA
+-- 16. INITIAL DATA
 -- =====================================================
 
 -- Insert phase templates (for reference)

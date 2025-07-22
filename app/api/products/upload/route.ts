@@ -1,14 +1,10 @@
 // app/api/products/upload/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase/client'
-import { initializeBackgroundProcessing } from '@/lib/background/init'
-
-// Initialize background processing when the API starts
-initializeBackgroundProcessing()
+import { createClient } from '@/lib/supabase/server'
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerClient()
+    const supabase = await createClient()
     
     // Get user from auth header or session
     const authHeader = request.headers.get('authorization')

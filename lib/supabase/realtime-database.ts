@@ -368,6 +368,35 @@ export async function completePipelinePhaseRT(
     // Start next phase if not complete
     if (!isComplete) {
       await enableNextPhase(productId, phaseNumber + 1)
+    } else {
+      // Product is complete - trigger automatic market research
+      try {
+        console.log(`🔍 [RT-DATABASE] Triggering automatic market research for completed product: ${productId}`)
+        
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
+        const researchResponse = await fetch(`${baseUrl}/api/dashboard/products/${productId}/research`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        })
+        
+        if (researchResponse.ok) {
+          const researchResult = await researchResponse.json()
+          console.log(`✅ [RT-DATABASE] Auto market research completed:`, researchResult.message)
+          
+          await logPipelineEventRT(
+            productId, 
+            4, 
+            'info', 
+            `Auto market research: Found ${researchResult.data?.amazonResults || 0} Amazon + ${researchResult.data?.ebayResults || 0} eBay results`, 
+            'auto_market_research'
+          )
+        } else {
+          console.warn(`⚠️ [RT-DATABASE] Market research failed:`, await researchResponse.text())
+        }
+        
+      } catch (researchError) {
+        console.warn(`⚠️ [RT-DATABASE] Market research error:`, researchError)
+      }
     }
 
     console.log(`✅ [RT-DATABASE] Phase ${phaseNumber} completed: ${productId}`)
@@ -434,7 +463,7 @@ export async function enableNextPhase(productId: string, phaseNumber: number): P
       .upsert({
         product_id: productId,
         phase_number: phaseNumber,
-        phase_name: phaseNames[phaseNumber] || `Phase ${phaseNumber}`,
+        phase_name: phaseNames[phaseNumber as keyof typeof phaseNames] || `Phase ${phaseNumber}`,
         status: 'pending',
         can_start: true,
         progress_percentage: 0

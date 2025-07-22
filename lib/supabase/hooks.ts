@@ -2,7 +2,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './client'
 import { Database } from './types'
-import { useAuth } from './auth'
+import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
+// Note: Authentication disabled for now, will be implemented later
 
 type Product = Database['public']['Tables']['products']['Row']
 type PipelinePhase = Database['public']['Tables']['pipeline_phases']['Row']
@@ -12,25 +13,39 @@ export function useProducts() {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const { user } = useAuth()
+
+  // Use the correct user ID where your products are stored
+  const DEFAULT_USER_ID = '66c9ebb5-0eed-429a-acde-a0ecb85a8eb1';
+  
+  console.log('🔧 [useProducts] Loading products without authentication (using default user)');
 
   useEffect(() => {
-    if (!user) {
-      setProducts([])
-      setLoading(false)
-      return
-    }
-
     async function fetchProducts() {
       try {
-        const { data, error } = await supabase
-          .from('products')
-          .select('*')
-          .order('created_at', { ascending: false })
+        console.log('📡 [useProducts] Fetching from API endpoint with user_id:', DEFAULT_USER_ID);
+        
+        // Use API route instead of direct admin client
+        const response = await fetch('/api/dashboard/products', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
 
-        if (error) throw error
-        setProducts(data || [])
+        if (!response.ok) {
+          throw new Error(`API request failed: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('📊 [useProducts] API response:', { 
+          dataCount: data?.products?.length || 0
+        });
+
+        setProducts(data.products || [])
+        console.log('✅ [useProducts] Final products set:', data?.length || 0);
+        
       } catch (err) {
+        console.error('❌ [useProducts] Fetch error:', err);
         setError(err instanceof Error ? err.message : 'Failed to fetch products')
       } finally {
         setLoading(false)
@@ -39,41 +54,100 @@ export function useProducts() {
 
     fetchProducts()
 
-    // Set up real-time subscription
+    // Add polling fallback - refresh every 10 seconds to ensure updates are visible
+    const pollInterval = setInterval(() => {
+      console.log('🔄 [useProducts] Polling for updates...');
+      fetchProducts();
+    }, 10000);
+
+    // Clean up polling on unmount
+    const cleanup = () => {
+      clearInterval(pollInterval);
+    };
+
+    // Removed force refresh events to prevent excessive API calls
+
+    // Set up real-time subscription for both products and pipeline phases
     const subscription = supabase
-      .channel('products_changes')
+      .channel('products_and_phases_changes')
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'products',
-          filter: `user_id=eq.${user.id}`,
+          filter: `user_id=eq.${DEFAULT_USER_ID}`,
         },
-        (payload) => {
-          console.log('Product change received:', payload)
+        async (payload: any) => {
+          console.log('🔄 [useProducts] Real-time product change detected:', {
+            event: payload.eventType,
+            productId: payload.new?.id || payload.old?.id,
+            newStatus: payload.new?.status,
+            oldStatus: payload.old?.status
+          });
           
-          if (payload.eventType === 'INSERT') {
-            setProducts(prev => [payload.new as Product, ...prev])
-          } else if (payload.eventType === 'UPDATE') {
-            setProducts(prev => 
-              prev.map(product => 
-                product.id === payload.new.id ? payload.new as Product : product
-              )
-            )
-          } else if (payload.eventType === 'DELETE') {
-            setProducts(prev => 
-              prev.filter(product => product.id !== payload.old.id)
-            )
+          // Instead of trying to transform raw data, refetch from API to get consistent structure
+          try {
+            const response = await fetch('/api/dashboard/products', {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            });
+
+            if (response.ok) {
+              const data = await response.json();
+              console.log('✅ [useProducts] Real-time refetch successful, got', data.products?.length || 0, 'products');
+              setProducts(data.products || []);
+            }
+          } catch (err) {
+            console.error('❌ [useProducts] Real-time refetch failed:', err);
           }
         }
       )
-      .subscribe()
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'pipeline_phases',
+        },
+        async (payload: any) => {
+          console.log('🔄 [useProducts] Real-time pipeline phase change detected:', {
+            event: payload.eventType,
+            productId: payload.new?.product_id || payload.old?.product_id,
+            phaseNumber: payload.new?.phase_number || payload.old?.phase_number,
+            status: payload.new?.status || payload.old?.status
+          });
+          
+          // Pipeline phase changes also trigger product refetch to update progress
+          try {
+            const response = await fetch('/api/dashboard/products', {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            });
+
+            if (response.ok) {
+              const data = await response.json();
+              console.log('✅ [useProducts] Pipeline phase refetch successful');
+              setProducts(data.products || []);
+            }
+          } catch (err) {
+            console.error('❌ [useProducts] Pipeline phase refetch failed:', err);
+          }
+        }
+      )
+      .subscribe((status: string) => {
+        console.log('📡 [useProducts] Subscription status:', status);
+      })
 
     return () => {
+      cleanup();
       subscription.unsubscribe()
     }
-  }, [user])
+  }, [])
 
   return { products, loading, error }
 }
@@ -85,43 +159,36 @@ export function useProductDetails(productId: string) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  console.log('🔧 [useProductDetails] Loading product details for:', productId);
+
   useEffect(() => {
     if (!productId) return
 
     async function fetchProductDetails() {
       try {
-        // Fetch product details
-        const { data: productData, error: productError } = await supabase
-          .from('products')
-          .select('*')
-          .eq('id', productId)
-          .single()
+        console.log('📡 [useProductDetails] Fetching from API endpoint...');
+        
+        // Use API route instead of direct admin client
+        const response = await fetch(`/api/dashboard/products/${productId}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
 
-        if (productError) throw productError
-        setProduct(productData)
+        if (!response.ok) {
+          throw new Error(`API request failed: ${response.status}`);
+        }
 
-        // Fetch pipeline phases
-        const { data: phasesData, error: phasesError } = await supabase
-          .from('pipeline_phases')
-          .select('*')
-          .eq('product_id', productId)
-          .order('phase_number', { ascending: true })
-
-        if (phasesError) throw phasesError
-        setPhases(phasesData || [])
-
-        // Fetch recent logs
-        const { data: logsData, error: logsError } = await supabase
-          .from('pipeline_logs')
-          .select('*')
-          .eq('product_id', productId)
-          .order('timestamp', { ascending: false })
-          .limit(50)
-
-        if (logsError) throw logsError
-        setLogs(logsData || [])
+        const data = await response.json();
+        
+        // Set product details from API response (product is returned directly)
+        setProduct(data)
+        setPhases(data.phases || [])
+        setLogs(data.logs || [])
 
       } catch (err) {
+        console.error('❌ [useProductDetails] Fetch error:', err);
         setError(err instanceof Error ? err.message : 'Failed to fetch product details')
       } finally {
         setLoading(false)
@@ -141,7 +208,7 @@ export function useProductDetails(productId: string) {
           table: 'products',
           filter: `id=eq.${productId}`,
         },
-        (payload) => {
+        (payload: any) => {
           setProduct(payload.new as Product)
         }
       )

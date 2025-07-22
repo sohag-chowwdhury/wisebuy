@@ -12,25 +12,14 @@ import { Badge } from "@/components/ui/badge";
 import { UploadDialog } from "@/components/upload-dialog";
 import { toast } from "sonner";
 
-interface ProductFormData {
-  name: string;
-  model: string;
-  brand: string;
-  category: string;
-}
+
 
 export function PhotoUpload() {
   const [files, setFiles] = useState<File[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [mounted, setMounted] = useState(false);
-  const [showProductForm, setShowProductForm] = useState(false);
-  const [productData, setProductData] = useState<ProductFormData>({
-    name: '',
-    model: '',
-    brand: '',
-    category: ''
-  });
+
   const [uploading, setUploading] = useState(false);
 
   // Handle mounting to prevent hydration issues
@@ -74,11 +63,7 @@ export function PhotoUpload() {
       return newFiles;
     });
 
-    // Show product form if files are added and it's not already visible
-    if (acceptedFiles.length > 0 && !showProductForm) {
-      setShowProductForm(true);
-    }
-  }, [showProductForm]);
+  }, []);
 
   // Clean up object URLs when component unmounts or files change
   useEffect(() => {
@@ -112,10 +97,6 @@ export function PhotoUpload() {
       setPreviewUrls(newPreviewUrls);
 
       // Hide product form if no files left
-      if (newFiles.length === 0) {
-        setShowProductForm(false);
-      }
-
       return newFiles;
     });
   };
@@ -125,15 +106,6 @@ export function PhotoUpload() {
     previewUrls.forEach((url) => URL.revokeObjectURL(url));
     setPreviewUrls([]);
     setFiles([]);
-    setShowProductForm(false);
-    setProductData({ name: '', model: '', brand: '', category: '' });
-  };
-
-  const handleProductDataChange = (field: keyof ProductFormData, value: string) => {
-    setProductData(prev => ({
-      ...prev,
-      [field]: value
-    }));
   };
 
   const handleUpload = async () => {
@@ -172,11 +144,7 @@ export function PhotoUpload() {
         formData.append("images", file);
       });
       
-      // Add product metadata (no user_id needed)
-      formData.append("name", productData.name || `Product ${Date.now()}`);
-      if (productData.model) formData.append("model", productData.model);
-      if (productData.brand) formData.append("brand", productData.brand);
-      if (productData.category) formData.append("category", productData.category);
+      // No product metadata sent initially - AI will analyze images first
 
       console.log('📤 Sending FormData for', files.length, 'files');
 
@@ -186,15 +154,23 @@ export function PhotoUpload() {
         body: formData,
       });
 
+      const responseData = await response.json();
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Upload failed');
+        throw new Error(responseData.error || 'Upload failed');
       }
 
-      toast.success('Product uploaded successfully! Processing pipeline started.');
-
-      // Open the upload dialog to show pipeline progress
-      setIsDialogOpen(true);
+      // Check if manual input is required
+      if (responseData.requiresManualInput) {
+        toast.warning(responseData.message || 'Manual input required - please provide product details');
+        // Show the dialog for manual input
+        setIsDialogOpen(true);
+      } else {
+        // Normal successful upload
+        toast.success('✅ Product uploaded! AI is analyzing images in the background.');
+        // Clear files and reset for next upload - no need to show progress dialog
+        clearAllFiles();
+      }
 
     } catch (error) {
       console.error('Upload failed:', error);
@@ -228,70 +204,7 @@ export function PhotoUpload() {
 
   return (
     <div className="p-3 sm:p-6 space-y-6">
-      {/* Enhanced Product Information Form - Only show when files are selected */}
-      {showProductForm && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Plus className="h-5 w-5" />
-              Product Information
-              <Badge variant="secondary">Optional</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="productName">Product Name</Label>
-                <Input
-                  id="productName"
-                  value={productData.name}
-                  onChange={(e) => handleProductDataChange('name', e.target.value)}
-                  placeholder="e.g. iPhone 13 Pro Max"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  AI will detect this if left blank
-                </p>
-              </div>
-              <div>
-                <Label htmlFor="model">Model</Label>
-                <Input
-                  id="model"
-                  value={productData.model}
-                  onChange={(e) => handleProductDataChange('model', e.target.value)}
-                  placeholder="e.g. A2484, 128GB"
-                />
-              </div>
-              <div>
-                <Label htmlFor="brand">Brand</Label>
-                <Input
-                  id="brand"
-                  value={productData.brand}
-                  onChange={(e) => handleProductDataChange('brand', e.target.value)}
-                  placeholder="e.g. Apple, Samsung"
-                />
-              </div>
-              <div>
-                <Label htmlFor="category">Category</Label>
-                <Input
-                  id="category"
-                  value={productData.category}
-                  onChange={(e) => handleProductDataChange('category', e.target.value)}
-                  placeholder="e.g. Smartphone, Electronics"
-                />
-              </div>
-            </div>
-            <div className="bg-blue-50 dark:bg-blue-950/50 p-3 rounded-lg">
-              <div className="flex items-start gap-2">
-                <AlertCircle className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                <div className="text-sm text-blue-800 dark:text-blue-200">
-                  <p className="font-medium">AI Enhancement</p>
-                  <p>Our AI will automatically detect and enhance this information during Phase 1 processing, even if left blank.</p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+
 
       {/* Enhanced Image Upload Section */}
       <Card>

@@ -375,6 +375,7 @@ export type ProductPipelineStatus =
   | "published";
 
 export interface DashboardStats {
+  totalProducts: number;
   totalProcessing: number;
   totalPaused: number;
   totalError: number;
@@ -395,6 +396,60 @@ export interface ProductItem {
   error?: string;
   price?: number;
   platforms?: string[];
+  brand?: string;
+  category?: string;
+  
+  // Additional analysis data
+  analysisData?: {
+    confidence?: number;
+    condition?: string;
+    conditionDetails?: string;
+    detectedCategories?: string[];
+    detectedBrands?: string[];
+    imageQualityScore?: number;
+    completenessScore?: number;
+  };
+  
+  // Market research data
+  marketData?: {
+    averagePrice?: number;
+    priceRange?: {
+      min?: number;
+      max?: number;
+    };
+    marketDemand?: string;
+    competitorCount?: number;
+    trendingScore?: number;
+    amazonPrice?: number;
+    amazonUrl?: string;
+    ebayPrice?: number;
+    ebayUrl?: string;
+  };
+  
+  // SEO analysis data
+  seoData?: {
+    title?: string;
+    metaDescription?: string;
+    urlSlug?: string;
+    keywords?: string[];
+    tags?: string[];
+    seoScore?: number;
+    searchVolume?: number;
+    keywordDifficulty?: number;
+  };
+  
+  // Product listings
+  listings?: Array<{
+    id: string;
+    platform: string;
+    title?: string;
+    description?: string;
+    price?: number;
+    status?: string;
+    publishedUrl?: string;
+    views?: number;
+    watchers?: number;
+  }>;
 }
 
 export interface DashboardFilters {

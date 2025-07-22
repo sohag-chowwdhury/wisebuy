@@ -58,38 +58,9 @@ export async function getUserId(): Promise<string> {
   }
 }
 
-// Client-side authentication (for components)
-export async function getClientUserId(): Promise<string> {
-  // Only run in browser environment
-  if (typeof window === 'undefined') {
-    throw new AuthError('getClientUserId can only be used in browser environment');
-  }
-
-  try {
-    const { createClient } = await import('@/lib/supabase/client');
-    const supabase = createClient();
-    
-    const { data: { user }, error } = await supabase.auth.getUser();
-
-    if (error || !user) {
-      throw new AuthError("User not authenticated");
-    }
-
-    return user.id;
-  } catch (error) {
-    console.error('❌ [CLIENT AUTH] Authentication failed:', error);
-    throw new AuthError("Authentication failed");
-  }
-}
-
-// Universal auth check that works in both server and client contexts
+// Universal auth check that works in server context only
 export async function getCurrentUser() {
   try {
-    // Try client-side first (works in components)
-    if (typeof window !== 'undefined') {
-      return await getClientUserId();
-    }
-    
     // Server-side (works in API routes)
     return await getUserId();
   } catch (error) {

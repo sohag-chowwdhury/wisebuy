@@ -83,8 +83,8 @@ export function Phase2Form({
     onUpdate(newData);
   };
 
-      const handleSpecificationsChange = (
-      field: keyof MarketResearchData["specifications"],
+  const handleSpecificationsChange = (
+    field: keyof MarketResearchData["specifications"],
     value: string
   ) => {
     const newData = {
@@ -298,7 +298,7 @@ export function Phase2Form({
                 onChange={(e) =>
                   handleSpecificationsChange("year", e.target.value)
                 }
-                placeholder="Enter year"
+                placeholder="e.g., 2024"
               />
             </div>
             <div className="space-y-2">
@@ -309,7 +309,7 @@ export function Phase2Form({
                 onChange={(e) =>
                   handleSpecificationsChange("weight", e.target.value)
                 }
-                placeholder="Enter weight"
+                placeholder="e.g., 2.5 lbs"
               />
             </div>
             <div className="space-y-2 col-span-2">
@@ -320,7 +320,7 @@ export function Phase2Form({
                 onChange={(e) =>
                   handleSpecificationsChange("dimensions", e.target.value)
                 }
-                placeholder="Enter dimensions"
+                placeholder="e.g., 12 x 8 x 10 inches"
               />
             </div>
           </div>

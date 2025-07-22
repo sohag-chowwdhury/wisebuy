@@ -133,9 +133,13 @@ export function useUploadProcess({
           if (data.result.success) {
             toast.success("Upload completed successfully! Background processing will continue.");
             
+            // Close immediately - no need to wait or show progress
             if (onSuccess) {
-              setTimeout(() => onSuccess(), 2000);
+              onSuccess();
             }
+            
+            // Reset upload state for next upload
+            setTimeout(() => reset(), 100);
           }
           break;
           
@@ -149,7 +153,7 @@ export function useUploadProcess({
           break;
       }
     },
-    [updateState, onSuccess]
+    [updateState, onSuccess, reset]
   );
 
   const handleUpload = useCallback(
@@ -190,6 +194,36 @@ export function useUploadProcess({
 
         console.log('🌐 [UPLOAD] Response status:', response.status);
         console.log('🌐 [UPLOAD] Response headers:', Object.fromEntries(response.headers.entries()));
+
+        // First check if response requires manual input
+        const contentType = response.headers.get('content-type');
+        if (contentType?.includes('application/json')) {
+          const data = await response.json();
+          console.log('🌐 [UPLOAD] JSON response data:', data);
+          
+          if (data.requiresManualInput) {
+            // Handle manual input requirement
+            updateState({ 
+              stage: "validation",
+              statusMessage: data.message || "Product identification incomplete - manual input required",
+              analysisResult: {
+                model: data.extractedData?.model || '',
+                confidence: data.aiConfidence || 0,
+                defects: data.extractedData?.defects || [],
+                condition: data.extractedData?.condition || 'unknown',
+                categories: [],
+                brands: []
+              }
+            });
+            return;
+          }
+          
+          // Handle other JSON error responses
+          if (!response.ok) {
+            const errorMessage = data.error || "Upload failed";
+            throw new Error(errorMessage);
+          }
+        }
 
         if (!response.ok) {
           let errorMessage = "Upload failed";
@@ -308,16 +342,87 @@ export function useUploadProcess({
     updateState({ productStatus: status });
   }, [updateState]);
 
-  const handleValidation = useCallback((correctedModel?: string) => {
-    if (correctedModel && state.analysisResult) {
-      updateState({
-        analysisResult: { ...state.analysisResult, model: correctedModel },
-        stage: "complete",
+  const handleValidation = useCallback(async (productInfo: {
+    name: string;
+    model: string;
+    brand: string;
+    category: string;
+  }) => {
+    try {
+      console.log('🔄 [UPLOAD] Re-submitting with manual product info:', productInfo);
+      updateState({ 
+        statusMessage: "Re-submitting with manual product information...",
+        stage: "analyzing",
+        progress: 0
       });
-    } else {
-      updateState({ stage: "complete" });
+
+      // Create new FormData with manual product information
+      const formData = new FormData();
+      files.forEach((file: File) => {
+        formData.append("images", file);
+      });
+      
+      // Add the manual product data
+      formData.append("productName", productInfo.name);
+      formData.append("model", productInfo.model);
+      formData.append("brand", productInfo.brand);
+      formData.append("category", productInfo.category);
+
+      console.log('🔄 [UPLOAD] Re-submitting with manual data to:', API_ENDPOINTS.UPLOAD);
+      
+      // Re-submit the upload
+      const response = await fetch(API_ENDPOINTS.UPLOAD, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Re-submission failed with status ${response.status}`);
+      }
+
+      // Process as normal streaming response
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error("No response stream available");
+      }
+
+      let buffer = '';
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += new TextDecoder().decode(value);
+        const lines = buffer.split('\n');
+        
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.trim()) {
+            const data = parseStreamingData(line);
+            if (data) {
+              processStreamingData(data);
+            }
+          }
+        }
+      }
+      
+      if (buffer.trim()) {
+        const data = parseStreamingData(buffer);
+        if (data) {
+          processStreamingData(data);
+        }
+      }
+
+    } catch (error) {
+      console.error('❌ [UPLOAD] Manual re-submission failed:', error);
+      updateState({
+        statusMessage: `Manual submission failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        stage: "validation" // Go back to validation on error
+      });
+      toast.error("Failed to process with manual information. Please try again.");
     }
-  }, [state.analysisResult, updateState]);
+  }, [files, processStreamingData, updateState]);
 
   const handleSaveDraft = useCallback(() => {
     updateState({ productStatus: "draft" });

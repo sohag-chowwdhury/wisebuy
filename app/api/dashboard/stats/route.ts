@@ -6,8 +6,9 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = createServerClient()
     
-    // Get user ID from auth (you'll need to implement this)
-    const userId = 'user-id-here' // TODO: Get from auth
+    // Use demo user directly (no authentication required)
+    const userId = '66c9ebb5-0eed-429a-acde-a0ecb85a8eb1'  // Demo user
+    console.log('🔧 [STATS] Using demo user:', userId)
 
     // Get product counts by status
     const { data: stats, error } = await supabase
@@ -25,22 +26,24 @@ export async function GET(request: NextRequest) {
       return acc
     }, {} as Record<string, number>)
 
+    // Include all processing-related statuses
+    const processingStatuses = ['uploaded', 'processing', 'phase_1', 'phase_2', 'phase_3', 'phase_4']
+    const totalProcessing = processingStatuses.reduce((sum, status) => sum + (statusCounts[status] || 0), 0)
+
     const dashboardStats = {
-      totalProcessing: (statusCounts['processing'] || 0) + 
-                      (statusCounts['phase_1'] || 0) + 
-                      (statusCounts['phase_2'] || 0) + 
-                      (statusCounts['phase_3'] || 0) + 
-                      (statusCounts['phase_4'] || 0),
+      totalProducts: stats.length, // Total count of all products
+      totalProcessing,
       totalPaused: statusCounts['paused'] || 0,
       totalError: statusCounts['error'] || 0,
       totalCompleted: statusCounts['completed'] || 0,
       totalPublished: statusCounts['published'] || 0
     }
 
+    console.log('📊 [STATS] Dashboard stats calculated:', dashboardStats)
     return NextResponse.json(dashboardStats)
 
   } catch (error) {
-    console.error('Stats error:', error)
+    console.error('❌ [STATS] Error:', error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to fetch stats' },
       { status: 500 }
