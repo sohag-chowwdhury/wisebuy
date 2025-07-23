@@ -29,6 +29,8 @@ export interface MarketResearchData {
   marketResearch: {
     amazonPrice: number;
     amazonLink: string;
+    ebayPrice: number;
+    ebayLink: string;
     msrp: number;
     competitivePrice: number;
   };
@@ -190,7 +192,7 @@ export function Phase2Form({
         {/* Market Research Section */}
         <div className="space-y-4">
           <h3 className="text-lg font-semibold">Market Research</h3>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="amazonPrice">Amazon Price ($)</Label>
               <div className="flex gap-2">
@@ -227,6 +229,44 @@ export function Phase2Form({
                   handleMarketResearchChange("amazonLink", e.target.value)
                 }
                 placeholder="https://amazon.com/dp/..."
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="ebayPrice">eBay Price ($)</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="ebayPrice"
+                  type="number"
+                  step="0.01"
+                  value={localData.marketResearch.ebayPrice}
+                  onChange={(e) =>
+                    handleMarketResearchChange(
+                      "ebayPrice",
+                      parseFloat(e.target.value) || 0
+                    )
+                  }
+                  placeholder="0.00"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    window.open(localData.marketResearch.ebayLink, "_blank")
+                  }
+                >
+                  <ExternalLink className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="ebayLink">eBay Link</Label>
+              <Input
+                id="ebayLink"
+                value={localData.marketResearch.ebayLink}
+                onChange={(e) =>
+                  handleMarketResearchChange("ebayLink", e.target.value)
+                }
+                placeholder="https://ebay.com/..."
               />
             </div>
             <div className="space-y-2">
@@ -343,6 +383,39 @@ export function Phase2Form({
             <ChevronRight className="h-4 w-4 ml-2" />
           </Button>
         </div>
+        {/* Data Summary Section */}
+        <div className="mt-6 p-4 bg-muted rounded-lg">
+          <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+            <Database className="h-4 w-4" />
+            Merged Data Summary
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+            <div>
+              <p className="font-medium text-muted-foreground">Product Info</p>
+              <p>Brand: {localData.specifications.brand}</p>
+              <p>Category: {localData.specifications.category}</p>
+              <p>Year: {localData.specifications.year}</p>
+            </div>
+            <div>
+              <p className="font-medium text-muted-foreground">Market Pricing</p>
+              <p>Amazon: ${localData.marketResearch.amazonPrice.toFixed(2)}</p>
+              <p>eBay: ${localData.marketResearch.ebayPrice.toFixed(2)}</p>
+              <p>MSRP: ${localData.marketResearch.msrp.toFixed(2)}</p>
+            </div>
+            <div>
+              <p className="font-medium text-muted-foreground">Physical Specs</p>
+              <p>Weight: {localData.specifications.weight}</p>
+              <p>Dimensions: {localData.specifications.dimensions}</p>
+            </div>
+          </div>
+          <div className="mt-3 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1">
+              <Database className="h-3 w-3" />
+              Data combined from products, market_research_data, and seo_analysis_data tables
+            </span>
+          </div>
+        </div>
+
       </CardContent>
     </Card>
   );

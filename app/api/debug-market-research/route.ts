@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/client'
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   const supabase = createServerClient()
   const userId = '66c9ebb5-0eed-429a-acde-a0ecb85a8eb1' // Demo user
   

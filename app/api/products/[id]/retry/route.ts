@@ -4,11 +4,12 @@ import { createServerClient } from '@/lib/supabase/client'
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const resolvedParams = await params;
     const supabase = createServerClient()
-    const productId = params.id
+    const productId = resolvedParams.id
 
     // Get current product status
     const { data: product } = await supabase

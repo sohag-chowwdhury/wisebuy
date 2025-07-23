@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/admin'
 import { completePipelinePhaseRT, updateProductStatus } from '@/lib/supabase/realtime-database'
 
-export async function POST(request: NextRequest) {
+export async function POST(_request: NextRequest) {
   try {
     console.log('🔄 [FORCE-REFRESH] Starting manual refresh and fix...')
 

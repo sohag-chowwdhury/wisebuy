@@ -3,13 +3,11 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { MainLayout } from "@/components/main-layout";
-import { PhotoUpload } from "@/components/photo-upload";
 import { useProducts } from "@/lib/supabase/hooks";
 import { RealTimePipelineStatus } from "@/components/real-time-pipeline-status";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -18,6 +16,14 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import {
   Search,
@@ -28,10 +34,16 @@ import {
   Activity,
   Package,
   TrendingUp,
-  Settings,
   ChevronLeft,
   ChevronRight,
-  Database,
+  Send,
+  X,
+  FileText,
+  ShoppingBag,
+  Facebook,
+  Globe,
+  SearchX,
+  Trash2,
 } from "lucide-react";
 import {
   DashboardStats,
@@ -122,6 +134,31 @@ const phaseLabels = {
   4: "Review",
 };
 
+// Helper function to format dates with better error handling
+const formatDate = (dateString: string | null | undefined): string => {
+  if (!dateString) return 'Recently';
+  
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'Recently';
+    
+    const now = new Date();
+    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+    
+    if (diffInHours < 1) return 'Just now';
+    if (diffInHours < 24) return `${Math.floor(diffInHours)}h ago`;
+    if (diffInHours < 48) return 'Yesterday';
+    
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+    });
+  } catch {
+    return 'Recently';
+  }
+};
+
 export default function Dashboard() {
   const router = useRouter();
   
@@ -155,21 +192,33 @@ export default function Dashboard() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // State for product selection and publishing
+  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
+  const [publishModalOpen, setPublishModalOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [publishingPlatforms, setPublishingPlatforms] = useState({
+    wordpress: false,
+    ebay: false,
+    amazon: false,
+    facebook: false,
+    other: false,
+  });
 
-  // Fetch dashboard stats
-  const fetchStats = async () => {
-    try {
-      const response = await fetch('/api/dashboard/stats');
-      if (!response.ok) {
-        throw new Error('Failed to fetch stats');
-      }
-      const stats = await response.json();
-      setDashboardData(prev => ({ ...prev, stats }));
-    } catch (err) {
-      console.error('Error fetching stats:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch stats');
-    }
-  };
+  // Fetch dashboard stats - currently unused but kept for potential future use
+  // const fetchStats = async () => {
+  //   try {
+  //     const response = await fetch('/api/dashboard/stats');
+  //     if (!response.ok) {
+  //       throw new Error('Failed to fetch stats');
+  //     }
+  //     const stats = await response.json();
+  //     setDashboardData(prev => ({ ...prev, stats }));
+  //   } catch (err) {
+  //     console.error('Error fetching stats:', err);
+  //     setError(err instanceof Error ? err.message : 'Failed to fetch stats');
+  //   }
+  // };
 
   // Fetch dashboard products
   const fetchProducts = async () => {
@@ -256,12 +305,24 @@ export default function Dashboard() {
       }
       
       if (filters.search) {
-        const searchTerm = filters.search.toLowerCase();
-        filteredProducts = filteredProducts.filter(p => 
-          p.name?.toLowerCase().includes(searchTerm) ||
-          p.model?.toLowerCase().includes(searchTerm) ||
-          p.brand?.toLowerCase().includes(searchTerm)
-        );
+        const searchTerm = filters.search.toLowerCase().trim();
+        if (searchTerm) {
+          filteredProducts = filteredProducts.filter(p => {
+            const searchableFields = [
+              p.name,
+              p.model,
+              p.brand,
+              p.category,
+              p.description,
+              p.status,
+              p.id, // Allow searching by ID
+            ].filter(Boolean); // Remove null/undefined values
+            
+            return searchableFields.some(field => 
+              field?.toString().toLowerCase().includes(searchTerm)
+            );
+          });
+        }
       }
       
       // Calculate pagination
@@ -343,8 +404,25 @@ export default function Dashboard() {
     setFilters((prev) => ({ ...prev, status, page: 1 })); // Reset to page 1 when filtering
   };
 
+  // Debounced search to improve performance
+  const [searchInput, setSearchInput] = useState(filters.search);
+  
+  // Debounce search input
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setFilters((prev) => ({ ...prev, search: searchInput.trim(), page: 1 }));
+    }, 300); // 300ms delay
+
+    return () => clearTimeout(timeoutId);
+  }, [searchInput]);
+
   const handleSearchChange = (search: string) => {
-    setFilters((prev) => ({ ...prev, search, page: 1 })); // Reset to page 1 when searching
+    setSearchInput(search);
+  };
+
+  const handleClearSearch = () => {
+    setSearchInput("");
+    setFilters((prev) => ({ ...prev, search: "", page: 1 }));
   };
 
   const handleProductClick = (productId: string) => {
@@ -353,6 +431,12 @@ export default function Dashboard() {
 
   const handleMarketResearch = async (productId: string, productName: string) => {
     try {
+      // Show API cost notification first
+      toast.info(
+        "💰 API Cost Info: SerpAPI needed for 5000 products (~$50 USD). eBay API is free and will be integrated later.",
+        { duration: 5000 }
+      );
+      
       // Show loading toast
       const loadingToast = toast.loading(`🔍 Researching ${productName} on Amazon & eBay...`);
       
@@ -376,12 +460,12 @@ export default function Dashboard() {
           `✅ Research completed! Found ${result.data.amazonResults + result.data.ebayResults} results (${urlTypeText}). Average price: $${result.data.averagePrice.toFixed(2)}`
         );
         
-        // Show warning for fake URLs
+        // Show warning for fake URLs with updated API info
         if (result.urlType === 'fake' && result.warning) {
           setTimeout(() => {
             toast.warning(
-              `${urlTypeEmoji} ${result.warning} Add SerpAPI or eBay API keys for working URLs.`,
-              { duration: 8000 }
+              `${urlTypeEmoji} Using demo data. Get SerpAPI key for real Amazon data ($50 for 5000 searches). eBay API integration coming soon (free).`,
+              { duration: 10000 }
             );
           }, 2000);
         }
@@ -405,6 +489,130 @@ export default function Dashboard() {
     e.stopPropagation();
   };
 
+  // Handle product selection
+  const handleProductSelect = (productId: string, checked: boolean) => {
+    setSelectedProducts(prev => {
+      const newSet = new Set(prev);
+      if (checked) {
+        newSet.add(productId);
+      } else {
+        newSet.delete(productId);
+      }
+      return newSet;
+    });
+  };
+
+  // Handle select all/none
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      const allProductIds = new Set(paginatedProducts.map(p => p.id));
+      setSelectedProducts(allProductIds);
+    } else {
+      setSelectedProducts(new Set());
+    }
+  };
+
+  // Handle platform selection
+  const handlePlatformChange = (platform: string, checked: boolean) => {
+    setPublishingPlatforms(prev => ({
+      ...prev,
+      [platform]: checked,
+    }));
+  };
+
+  // Handle publishing
+  const handlePublish = async () => {
+    const selectedPlatforms = Object.entries(publishingPlatforms)
+      .filter(([_, enabled]) => enabled)
+      .map(([platform, _]) => platform);
+
+    if (selectedPlatforms.length === 0) {
+      toast.error("Please select at least one platform to publish to");
+      return;
+    }
+
+    try {
+      toast.loading(`Publishing ${selectedProducts.size} products to ${selectedPlatforms.join(', ')}...`);
+      
+      // Mock API call - replace with actual publish endpoint
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      toast.dismiss();
+      toast.success(`✅ Successfully published ${selectedProducts.size} products to ${selectedPlatforms.join(', ')}`);
+      
+      // Reset selection and close modal
+      setSelectedProducts(new Set());
+      setPublishModalOpen(false);
+      setPublishingPlatforms({
+        wordpress: false,
+        ebay: false,
+        amazon: false,
+        facebook: false,
+        other: false,
+      });
+      
+    } catch (error) {
+      toast.dismiss();
+      toast.error("Failed to publish products. Please try again.");
+    }
+  };
+
+  // Handle delete products
+  const handleDelete = async () => {
+    try {
+      const selectedCount = selectedProducts.size;
+      const selectedIds = Array.from(selectedProducts);
+      
+      console.log('🗑️ [DASHBOARD] Starting delete operation for:', selectedIds);
+      
+      const loadingToast = toast.loading(`Deleting ${selectedCount} product${selectedCount !== 1 ? 's' : ''}...`);
+      
+      // Call the real delete API
+      const response = await fetch('/api/products/bulk-delete', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productIds: selectedIds })
+      });
+
+      const result = await response.json();
+      
+      toast.dismiss(loadingToast);
+      
+      if (!response.ok) {
+        throw new Error(result.error || `Delete failed with status ${response.status}`);
+      }
+
+      if (result.success) {
+        console.log('✅ [DASHBOARD] Delete successful:', result);
+        
+        toast.success(`✅ ${result.message}`);
+        
+        // Show additional info if some products weren't found
+        if (result.notFound && result.notFound.length > 0) {
+          setTimeout(() => {
+            toast.warning(`⚠️ ${result.notFound.length} product(s) were already deleted or not found`);
+          }, 1000);
+        }
+        
+        // Reset selection and close modal
+        setSelectedProducts(new Set());
+        setDeleteModalOpen(false);
+        
+        // Real-time updates should automatically refresh the products list
+        // No need to manually refresh - the useProducts hook will handle it
+        console.log('🔄 [DASHBOARD] Waiting for real-time updates...');
+        
+      } else {
+        throw new Error(result.error || 'Delete operation failed');
+      }
+      
+    } catch (error) {
+      console.error('❌ [DASHBOARD] Delete error:', error);
+      toast.dismiss();
+      toast.error(`Failed to delete products: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
   return (
     <MainLayout>
       <div className="p-6 space-y-6">
@@ -418,72 +626,27 @@ export default function Dashboard() {
               5-Stage Product Processing Pipeline
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <Button 
-              variant="outline" 
-              className="flex items-center gap-2"
-              onClick={async () => {
-                try {
-                  const response = await fetch('/api/force-refresh', { method: 'POST' });
-                  const result = await response.json();
-                  if (result.success) {
-                    toast.success(`${result.message}`);
-                  } else {
-                    toast.error(result.error || 'Failed to refresh');
-                  }
-                } catch (error) {
-                  toast.error('Error refreshing dashboard');
-                }
-              }}
-            >
-              <Activity className="h-4 w-4" />
-              Fix & Refresh
-            </Button>
-            <Button 
-              variant="outline" 
-              className="flex items-center gap-2"
-              onClick={async () => {
-                try {
-                  const response = await fetch('/api/migrate-market-fields', { method: 'POST' });
-                  const result = await response.json();
-                  if (result.success) {
-                    toast.success(`Database updated! Added: ${result.fieldsAdded.join(', ')}`);
-                  } else {
-                    toast.error(result.error || 'Migration failed');
-                  }
-                } catch (error) {
-                  toast.error('Error running migration');
-                }
-              }}
-            >
-                             <Database className="h-4 w-4" />
-               Update Schema
-             </Button>
-            <Button 
-              variant="outline" 
-              className="flex items-center gap-2"
-              onClick={async () => {
-                try {
-                  const response = await fetch('/api/populate-market-fields', { method: 'POST' });
-                  const result = await response.json();
-                  if (result.success) {
-                    toast.success(`Data populated! Updated ${result.recordsUpdated} of ${result.recordsProcessed} records`);
-                  } else {
-                    toast.error(result.error || 'Population failed');
-                  }
-                } catch (error) {
-                  toast.error('Error populating data');
-                }
-              }}
-            >
-              <Package className="h-4 w-4" />
-              Fill Data
-            </Button>
-            <Button variant="outline" className="flex items-center gap-2">
-              <Settings className="h-4 w-4" />
-              Pipeline Settings
-            </Button>
-          </div>
+          
+          {/* Action Buttons - show when products selected */}
+          {selectedProducts.size > 0 && (
+            <div className="flex items-center gap-2">
+              <Button 
+                onClick={() => setDeleteModalOpen(true)}
+                variant="destructive"
+                className="flex items-center gap-2"
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete ({selectedProducts.size})
+              </Button>
+              <Button 
+                onClick={() => setPublishModalOpen(true)}
+                className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
+              >
+                <Send className="h-4 w-4" />
+                Publish ({selectedProducts.size})
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Stats Cards */}
@@ -542,35 +705,60 @@ export default function Dashboard() {
         </div>
 
         {/* Real-time Pipeline Status */}
-        <RealTimePipelineStatus />
-
-        {/* Upload Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Upload Product Images</CardTitle>
-            <CardDescription>
-              Drag and drop images or click to browse
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <PhotoUpload />
-          </CardContent>
-        </Card>
+        {dashboardData.stats.totalProcessing > 0 && <RealTimePipelineStatus />}
 
         {/* Product Management */}
         <Card>
           <CardHeader className="space-y-4">
-            <CardTitle>Product Management</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>Product Management</CardTitle>
+              {paginatedProducts.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    checked={selectedProducts.size === paginatedProducts.length && paginatedProducts.length > 0}
+                    onCheckedChange={handleSelectAll}
+                  />
+                  <span className="text-sm text-muted-foreground">
+                    Select All
+                  </span>
+                </div>
+              )}
+            </div>
 
-            {/* Search */}
-            <div className="relative max-w-sm">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input
-                placeholder="Search products..."
-                value={filters.search}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                className="pl-9"
-              />
+            {/* Enhanced Search */}
+            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+              <div className="relative max-w-sm w-full sm:w-auto">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input
+                  placeholder="Search by name, model, brand, category..."
+                  value={searchInput}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  className="pl-9 pr-10"
+                />
+                {searchInput && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleClearSearch}
+                    className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 hover:bg-muted rounded-full"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+              
+              {/* Search Results Info */}
+              {filters.search && (
+                <div className="text-sm text-muted-foreground">
+                  {pagination.total === 0 ? (
+                    <span className="text-orange-600">No results found for "{filters.search}"</span>
+                  ) : (
+                    <span>
+                      Found {pagination.total} result{pagination.total !== 1 ? 's' : ''} for &quot;{filters.search}&quot;
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Filter Tabs */}
@@ -598,7 +786,36 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {paginatedProducts.map((product) => {
+              {paginatedProducts.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="mx-auto w-24 h-24 bg-muted rounded-full flex items-center justify-center mb-4">
+                    {filters.search ? (
+                      <SearchX className="h-8 w-8 text-muted-foreground" />
+                    ) : (
+                      <Package className="h-8 w-8 text-muted-foreground" />
+                    )}
+                  </div>
+                  <h3 className="text-lg font-semibold mb-2">
+                    {filters.search ? 'No products found' : 'No products yet'}
+                  </h3>
+                  <p className="text-muted-foreground">
+                    {filters.search 
+                      ? `No products match your search "${filters.search}". Try different keywords or clear the search.`
+                      : 'Start by uploading some products to see them here.'
+                    }
+                  </p>
+                  {filters.search && (
+                    <Button 
+                      variant="outline" 
+                      onClick={handleClearSearch}
+                      className="mt-4"
+                    >
+                      Clear Search
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                paginatedProducts.map((product) => {
                 const config = statusConfig[product.status] || {
                   label: product.status || "Unknown",
                   icon: Package,
@@ -618,10 +835,11 @@ export default function Dashboard() {
                         {/* Header Row */}
                         <div className="flex items-start justify-between">
                           <div className="flex items-center gap-3 flex-1 min-w-0">
-                            <input
-                              type="checkbox"
-                              className="h-4 w-4 rounded border-border flex-shrink-0"
+                            <Checkbox
+                              checked={selectedProducts.has(product.id)}
+                              onCheckedChange={(checked) => handleProductSelect(product.id, checked as boolean)}
                               onClick={stopPropagation}
+                              className="flex-shrink-0"
                             />
                             <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center flex-shrink-0">
                               <Package className="h-5 w-5 text-muted-foreground" />
@@ -736,15 +954,10 @@ export default function Dashboard() {
                             </div>
                           )}
 
-                          {/* Timestamps */}
-                          <div className="text-xs text-muted-foreground space-y-1">
+                          {/* Timestamp */}
+                          <div className="text-xs text-muted-foreground">
                             <div>
-                              Uploaded{" "}
-                              {new Date(product.createdAt).toLocaleDateString()}
-                            </div>
-                            <div>
-                              Completed{" "}
-                              {new Date(product.updatedAt).toLocaleDateString()}
+                              Updated {formatDate(product.updatedAt)}
                             </div>
                           </div>
                         </div>
@@ -754,9 +967,9 @@ export default function Dashboard() {
                       <div className="hidden sm:flex items-start gap-4">
                         {/* Checkbox and Thumbnail */}
                         <div className="flex items-center gap-3">
-                          <input
-                            type="checkbox"
-                            className="h-4 w-4 rounded border-border"
+                          <Checkbox
+                            checked={selectedProducts.has(product.id)}
+                            onCheckedChange={(checked) => handleProductSelect(product.id, checked as boolean)}
                             onClick={stopPropagation}
                           />
                           <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center">
@@ -853,12 +1066,7 @@ export default function Dashboard() {
                           )}
                           <div className="text-xs text-muted-foreground text-right">
                             <div>
-                              Uploaded{" "}
-                              {new Date(product.createdAt).toLocaleDateString()}
-                            </div>
-                            <div>
-                              Completed{" "}
-                              {new Date(product.updatedAt).toLocaleDateString()}
+                              Updated {formatDate(product.updatedAt)}
                             </div>
                           </div>
                                                       <div className="flex gap-1">
@@ -886,7 +1094,7 @@ export default function Dashboard() {
                     </CardContent>
                   </Card>
                 );
-              })}
+              }))}
             </div>
 
             {/* Loading State */}
@@ -1001,6 +1209,197 @@ export default function Dashboard() {
             )}
           </CardContent>
         </Card>
+
+        {/* Publishing Modal */}
+        <Dialog open={publishModalOpen} onOpenChange={setPublishModalOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Send className="h-5 w-5" />
+                Publish Products
+              </DialogTitle>
+              <DialogDescription>
+                Select the platforms where you want to publish {selectedProducts.size} selected product{selectedProducts.size !== 1 ? 's' : ''}.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              {/* Platform Selection */}
+              <div className="space-y-3">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="wordpress"
+                    checked={publishingPlatforms.wordpress}
+                    onCheckedChange={(checked) => handlePlatformChange('wordpress', checked as boolean)}
+                  />
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-blue-600" />
+                    <label htmlFor="wordpress" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                      WordPress
+                    </label>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="ebay"
+                    checked={publishingPlatforms.ebay}
+                    onCheckedChange={(checked) => handlePlatformChange('ebay', checked as boolean)}
+                  />
+                  <div className="flex items-center gap-2">
+                    <ShoppingBag className="h-4 w-4 text-yellow-600" />
+                    <label htmlFor="ebay" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                      eBay
+                    </label>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="amazon"
+                    checked={publishingPlatforms.amazon}
+                    onCheckedChange={(checked) => handlePlatformChange('amazon', checked as boolean)}
+                  />
+                  <div className="flex items-center gap-2">
+                    <Package className="h-4 w-4 text-orange-600" />
+                    <label htmlFor="amazon" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                      Amazon
+                    </label>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="facebook"
+                    checked={publishingPlatforms.facebook}
+                    onCheckedChange={(checked) => handlePlatformChange('facebook', checked as boolean)}
+                  />
+                  <div className="flex items-center gap-2">
+                    <Facebook className="h-4 w-4 text-blue-500" />
+                    <label htmlFor="facebook" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                      Facebook Marketplace
+                    </label>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="other"
+                    checked={publishingPlatforms.other}
+                    onCheckedChange={(checked) => handlePlatformChange('other', checked as boolean)}
+                  />
+                  <div className="flex items-center gap-2">
+                    <Globe className="h-4 w-4 text-gray-600" />
+                    <label htmlFor="other" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                      Other Platforms
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-3">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setPublishModalOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handlePublish}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                  disabled={!Object.values(publishingPlatforms).some(v => v)}
+                >
+                  <Send className="h-4 w-4 mr-2" />
+                  Publish Now
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Modal */}
+        <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Trash2 className="h-5 w-5 text-red-500" />
+                Delete Products
+              </DialogTitle>
+              <DialogDescription>
+                {selectedProducts.size > 0 ? (
+                  `Are you sure you want to delete ${selectedProducts.size} selected product${selectedProducts.size !== 1 ? 's' : ''}? This action cannot be undone.`
+                ) : (
+                  "No products are currently selected for deletion."
+                )}
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              {/* Warning Message */}
+              <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-lg p-4">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 text-red-500" />
+                  <span className="text-sm font-medium text-red-800 dark:text-red-200">
+                    Permanent Deletion
+                  </span>
+                </div>
+                <p className="text-sm text-red-700 dark:text-red-300 mt-1">
+                  This will permanently remove all product data, images, and analysis results. 
+                  The products cannot be recovered after deletion.
+                </p>
+              </div>
+
+              {/* Selected Products Summary */}
+              {selectedProducts.size > 0 ? (
+                <div className="bg-muted rounded-lg p-3">
+                  <p className="text-sm font-medium">Products to be deleted:</p>
+                  <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
+                    {Array.from(selectedProducts).map(productId => {
+                      const product = paginatedProducts.find(p => p.id === productId);
+                      return (
+                        <div key={productId} className="text-sm text-muted-foreground flex items-center gap-2">
+                          <Package className="h-3 w-3 flex-shrink-0" />
+                          <span className="truncate">
+                            {product?.name || 'Unknown Product'}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    {selectedProducts.size} product{selectedProducts.size !== 1 ? 's' : ''} total
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-muted rounded-lg p-3">
+                  <p className="text-sm text-center text-muted-foreground">
+                    No products selected. Please select products from the dashboard first.
+                  </p>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-3">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setDeleteModalOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleDelete}
+                  variant="destructive"
+                  className="flex items-center gap-2"
+                  disabled={selectedProducts.size === 0}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete Permanently
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </MainLayout>
   );

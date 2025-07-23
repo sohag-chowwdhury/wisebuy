@@ -116,13 +116,15 @@ export async function executePhase2MarketResearch(productId: string): Promise<vo
     // 3. Call your existing enrich API endpoint
     const enrichData = await callEnrichAPI(analysisData.model || analysisData.product_name);
 
-    // 4. Save market data to product_market_data table (including specifications)
+    // 4. Save market data to market_research_data table (including specifications and eBay data)
     const { error: saveError } = await supabaseAdmin
-      .from('product_market_data')
+      .from('market_research_data')
       .insert({
         product_id: productId,
         amazon_price: enrichData.msrp?.currentPrice || 0,
         amazon_link: enrichData.msrp?.sourceUrl || '',
+        ebay_price: enrichData.competitive?.ebayPrice || 0,
+        ebay_link: enrichData.competitive?.ebayUrl || '',
         msrp: enrichData.msrp?.msrp || 0,
         competitive_price: enrichData.competitive?.averageMarketPrice || 0,
         brand: enrichData.msrp?.brand || extractBrandFromModel(analysisData.model)?.[0] || 'Unknown',
@@ -130,13 +132,7 @@ export async function executePhase2MarketResearch(productId: string): Promise<vo
         year: enrichData.specifications?.yearReleased || (analysisData.model?.match(/\b(19|20)\d{2}\b/)?.[0]) || null,
         weight: enrichData.specifications?.dimensions?.weight || null,
         dimensions: enrichData.specifications?.dimensions ? 
-          `${enrichData.specifications.dimensions.length || 'L'} x ${enrichData.specifications.dimensions.width || 'W'} x ${enrichData.specifications.dimensions.height || 'H'}` : null,
-        market_demand: enrichData.competitive?.marketDemand || 'medium',
-        price_trend: enrichData.competitive?.priceTrend || 'stable',
-        competitor_count: enrichData.competitive?.totalListings || 0,
-        estimated_profit_margin: calculateProfitMargin(enrichData.msrp?.currentPrice, enrichData.competitive?.averageMarketPrice),
-        price_history: enrichData.competitive?.platforms || {},
-        demand_score: enrichData.competitive?.demandScore || 50
+          `${enrichData.specifications.dimensions.length || 'L'} x ${enrichData.specifications.dimensions.width || 'W'} x ${enrichData.specifications.dimensions.height || 'H'}` : null
       });
 
     if (saveError) {

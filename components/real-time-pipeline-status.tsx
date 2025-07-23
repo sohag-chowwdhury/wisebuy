@@ -107,9 +107,9 @@ export function RealTimePipelineStatus() {
           let calculatedProgress = 0;
           let currentPhase = p.current_phase || 1;
           
-          if (p.phases && p.phases.length > 0) {
-            const completedPhases = p.phases.filter(phase => phase.status === 'completed').length;
-            const runningPhases = p.phases.filter(phase => phase.status === 'running').length;
+          if ('phases' in p && p.phases && Array.isArray(p.phases) && p.phases.length > 0) {
+            const completedPhases = p.phases.filter((phase: any) => phase.status === 'completed').length;
+            const runningPhases = p.phases.filter((phase: any) => phase.status === 'running').length;
             calculatedProgress = (completedPhases / 4) * 100;
             if (runningPhases > 0) {
               calculatedProgress += (runningPhases / 4) * 50; // Add 50% for running phases
@@ -140,8 +140,8 @@ export function RealTimePipelineStatus() {
             status: p.status,
             currentPhase: Math.min(currentPhase, 4),
             progress: Math.min(Math.round(calculatedProgress), 100),
-            lastUpdated: p.updated_at || p.updatedAt,
-            aiConfidence: p.ai_confidence || p.aiConfidence || undefined,
+            lastUpdated: p.updated_at || (p as any).updatedAt,
+            aiConfidence: p.ai_confidence || (p as any).aiConfidence || undefined,
           };
         })
         .sort((a, b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime());

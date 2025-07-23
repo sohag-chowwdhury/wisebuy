@@ -4,8 +4,7 @@ import { LucideIcon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Check, Clock, X } from "lucide-react";
-
+import { CheckCircle2, Clock, AlertCircle } from "lucide-react";
 interface PipelineStep {
   id: number;
   title: string;
@@ -13,7 +12,6 @@ interface PipelineStep {
   icon: LucideIcon;
 }
 
-// Phase completion status
 type PhaseStatus = "pending" | "running" | "completed" | "failed";
 
 interface PhaseState {
@@ -40,11 +38,11 @@ export function PipelineStepper({
 
     switch (phase.status) {
       case "completed":
-        return <Check className="h-4 w-4 text-green-600" />;
+        return <CheckCircle2 className="h-4 w-4 text-green-600" />;
       case "running":
         return <Clock className="h-4 w-4 text-blue-600 animate-pulse" />;
       case "failed":
-        return <X className="h-4 w-4 text-red-600" />;
+        return <AlertCircle className="h-4 w-4 text-red-600" />;
       default:
         return (
           <step.icon

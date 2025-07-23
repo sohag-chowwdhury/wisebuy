@@ -28,8 +28,16 @@ interface PhaseState {
   isRunning: boolean;
 }
 
+interface ProductImage {
+  id: string;
+  imageUrl: string;
+  fileName?: string;
+  fileSize?: number;
+  isPrimary: boolean;
+}
+
 export interface ProductListingData {
-  images: string[];
+  images: ProductImage[];
   productTitle: string;
   price: number;
   publishingStatus: string;
@@ -216,12 +224,12 @@ export function Phase4Form({
           <div className="grid grid-cols-4 gap-4">
             {localData.images.map((image, index) => (
               <div
-                key={index}
-                className="aspect-square bg-muted rounded-lg overflow-hidden"
+                key={image.id || index}
+                className="relative aspect-square bg-muted rounded-lg overflow-hidden"
               >
                 <img
-                  src={image}
-                  alt={`Product image ${index + 1}`}
+                  src={image.imageUrl}
+                  alt={image.fileName || `Product image ${index + 1}`}
                   className="w-full h-full object-cover"
                   onError={(e) => {
                     // Fallback for broken images
@@ -230,6 +238,11 @@ export function Phase4Form({
                       `<div class="w-full h-full flex items-center justify-center text-xs text-muted-foreground">Image not available</div>`;
                   }}
                 />
+                {image.isPrimary && (
+                  <div className="absolute top-1 left-1 bg-primary text-primary-foreground text-xs px-1 rounded">
+                    Primary
+                  </div>
+                )}
               </div>
             ))}
             <div className="aspect-square border-2 border-dashed border-muted-foreground/25 rounded-lg flex items-center justify-center">
@@ -240,7 +253,7 @@ export function Phase4Form({
             {localData.images.length} images uploaded
           </p>
         </div>
-
+        
         {/* Product Details */}
         <div className="grid grid-cols-2 gap-6">
           <div className="space-y-2">
@@ -380,7 +393,7 @@ export function Phase4Form({
                   checked={checked}
                   onCheckedChange={(checked) =>
                     handleChannelChange(
-                                                channel as keyof ProductListingData["channels"],
+                      channel as keyof ProductListingData["channels"],
                       checked as boolean
                     )
                   }

@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { researchProductWithAI } from '@/lib/ai-market-research'
 import { researchProductWithRealAPIs, checkRealAPIKeys } from '@/lib/real-marketplace-search'
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     console.log('🎭 [DEMO] Running fake vs real URL comparison...')
 

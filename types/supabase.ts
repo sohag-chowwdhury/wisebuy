@@ -5,6 +5,7 @@ export type Product = {
   user_id: string;
   name: string;
   model: string | null;
+  year_released: string | null;
   status:
     | "uploading"
     | "processing"
@@ -60,6 +61,8 @@ export type MarketResearchData = {
   product_id: string;
   amazon_price: number | null;
   amazon_link: string | null;
+  ebay_price: number | null;
+  ebay_link: string | null;
   msrp: number | null;
   competitive_price: number | null;
   brand: string | null;

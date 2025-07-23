@@ -4,10 +4,11 @@ import { logPipelineEventRT, updateProductStatus, startPipelinePhaseRT, complete
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const productId = params.id
+    const resolvedParams = await params;
+    const productId = resolvedParams.id
 
     console.log(`🎭 [SIMULATE] Starting progressive simulation for product ${productId}`)
 

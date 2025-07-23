@@ -4,14 +4,15 @@ import { createServerClient } from '@/lib/supabase/client'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const resolvedParams = await params;
     const supabase = createServerClient()
     
     // Use demo user directly (no authentication required)
     const userId = '66c9ebb5-0eed-429a-acde-a0ecb85a8eb1'  // Demo user
-    console.log('🔧 [PRODUCT_DETAIL] Using demo user:', userId, 'Product ID:', params.id)
+    console.log('🔧 [PRODUCT_DETAIL] Using demo user:', userId, 'Product ID:', resolvedParams.id)
 
     // Get comprehensive product data from all tables including pipeline phases
     const { data: product, error } = await supabase
@@ -49,7 +50,7 @@ export async function GET(
           updated_at
         )
       `)
-      .eq('id', params.id)
+      .eq('id', resolvedParams.id)
       .eq('user_id', userId)
       .single()
 
@@ -57,14 +58,14 @@ export async function GET(
     const { data: marketData } = await supabase
       .from('market_research_data')
       .select('*')
-      .eq('product_id', params.id)
+      .eq('product_id', resolvedParams.id)
       .single()
 
     // Fetch SEO analysis data
     const { data: seoData } = await supabase
       .from('seo_analysis_data')
       .select('*')
-      .eq('product_id', params.id)
+      .eq('product_id', resolvedParams.id)
       .single()
 
     console.log('📊 [PRODUCT_DETAIL] Market data:', marketData)
@@ -143,7 +144,7 @@ export async function GET(
       logs: []
     }
 
-    console.log(`✅ [PRODUCT_DETAIL] Product details fetched successfully for: ${params.id}`)
+    console.log(`✅ [PRODUCT_DETAIL] Product details fetched successfully for: ${resolvedParams.id}`)
 
     return NextResponse.json(transformedProduct)
 

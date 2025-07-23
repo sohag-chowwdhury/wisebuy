@@ -4,10 +4,11 @@ import { completePipelinePhaseRT, updateProductStatus, logPipelineEventRT } from
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const productId = params.id
+    const resolvedParams = await params;
+    const productId = resolvedParams.id
     console.log(`🔧 [COMPLETE-STUCK] Checking for stuck phases in product ${productId}`)
 
     // Get product and its phases

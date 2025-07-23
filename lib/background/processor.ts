@@ -203,6 +203,8 @@ export class BackgroundProcessor {
       msrp: this.generatePrice(500, 2000),
       amazonPrice: this.generatePrice(400, 1800),
       amazonLink: `https://amazon.com/dp/${Math.random().toString(36).substr(2, 10)}`,
+      ebayPrice: this.generatePrice(350, 1500),
+      ebayLink: `https://ebay.com/itm/${Math.random().toString(36).substr(2, 12)}`,
       competitivePrice: this.generatePrice(350, 1600),
       specifications: {
         brand: product.brand || 'Unknown',
@@ -248,13 +250,16 @@ export class BackgroundProcessor {
     // Simulate pricing calculation and content generation
     await this.delay(3500)
 
-    const conditionMultiplier = {
+    const conditionMultipliers = {
       'new': 0.95,
       'like_new': 0.85,
       'good': 0.75,
       'fair': 0.60,
       'poor': 0.45
-    }[product.condition || 'good'] || 0.75
+    } as const;
+    
+    const condition = (product.condition || 'good') as keyof typeof conditionMultipliers;
+    const conditionMultiplier = conditionMultipliers[condition] || 0.75
 
     const suggestedPrice = Math.floor((product.msrp || 500) * conditionMultiplier)
     
@@ -696,54 +701,9 @@ private capitalizeFirst(str: string): string {
     ]
   }
 
-  private generateSEOTitle(product: any): string {
-    return `${product.name || 'Product'} - ${product.condition || 'Good'} Condition | Best Price`
-  }
 
-  private generateMetaDescription(product: any): string {
-    return `Buy ${product.name || 'this product'} in ${product.condition || 'good'} condition. ${product.short_description || 'Great value for money.'} Free shipping available.`
-  }
 
-  private generateUrlSlug(product: any): string {
-    return (product.name || 'product')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-  }
-
-  private generateKeywords(product: any): string[] {
-    const base = [
-      product.brand || 'electronics',
-      product.category || 'gadget',
-      product.condition || 'used',
-      'buy online',
-      'best price'
-    ]
-    return base.filter(Boolean)
-  }
 }
 
 // Create global processor instance
 export const backgroundProcessor = new BackgroundProcessor()
-
-// lib/background/init.ts
-import { backgroundProcessor } from './processor'
-
-// Initialize background processing (call this in your API route or server)
-export function initializeBackgroundProcessing() {
-  // Start the processor if it's not already running
-  backgroundProcessor.start()
-  
-  // Handle graceful shutdown
-  process.on('SIGTERM', () => {
-    console.log('🛑 Received SIGTERM, stopping background processor...')
-    backgroundProcessor.stop()
-    process.exit(0)
-  })
-  
-  process.on('SIGINT', () => {
-    console.log('🛑 Received SIGINT, stopping background processor...')
-    backgroundProcessor.stop()
-    process.exit(0)
-  })
-}

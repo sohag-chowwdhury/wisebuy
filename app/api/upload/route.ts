@@ -420,6 +420,10 @@ async function runPipelinePhasesInBackground({ product, productName, model, bran
           productUpdateData.description = specsData.description;
           console.log('✅ [UPLOAD] Set description:', specsData.description);
         }
+        if (specsData.yearReleased) {
+          productUpdateData.year_released = specsData.yearReleased;
+          console.log('✅ [UPLOAD] Set year_released:', specsData.yearReleased);
+        }
       } else {
         console.log('⚠️ [UPLOAD] No specifications data found in enrichment result');
       }
@@ -448,6 +452,9 @@ async function runPipelinePhasesInBackground({ product, productName, model, bran
           }
           if (directSpecs.description) {
             productUpdateData.description = directSpecs.description;
+          }
+          if (directSpecs.yearReleased) {
+            productUpdateData.year_released = directSpecs.yearReleased;
           }
         } else {
           throw new Error('Direct specifications call returned invalid data');

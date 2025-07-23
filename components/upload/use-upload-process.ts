@@ -37,6 +37,7 @@ interface UploadState {
   productStatus: ProductStatus;
   productId?: string;
   imageUrls?: string[];
+  manualValidationComplete?: boolean; // Track if manual validation was completed
 }
 
 const initialState: UploadState = {
@@ -60,6 +61,7 @@ const initialState: UploadState = {
   productStatus: "draft",
   productId: undefined,
   imageUrls: undefined,
+  manualValidationComplete: false,
 };
 
 export function useUploadProcess({
@@ -95,10 +97,14 @@ export function useUploadProcess({
           break;
           
         case "analysis":
-          updateState({ 
+          setState((prev) => ({ 
+            ...prev,
             analysisResult: data.result,
-            stage: data.result.confidence >= DEFAULT_VALUES.CONFIDENCE_THRESHOLD ? "complete" : "validation"
-          });
+            // Only show validation if confidence is low AND manual validation hasn't been completed
+            stage: (data.result.confidence >= DEFAULT_VALUES.CONFIDENCE_THRESHOLD || prev.manualValidationComplete) 
+              ? "complete" 
+              : "validation"
+          }));
           break;
           
         case "msrp":
@@ -153,7 +159,7 @@ export function useUploadProcess({
           break;
       }
     },
-    [updateState, onSuccess, reset]
+    [updateState, onSuccess, reset, setState]
   );
 
   const handleUpload = useCallback(
@@ -173,7 +179,8 @@ export function useUploadProcess({
         currentPhase: 1,
         statusMessage: "Preparing upload...",
         productId: undefined,
-        imageUrls: undefined
+        imageUrls: undefined,
+        manualValidationComplete: false // Reset manual validation flag for new upload
       });
 
       const formData = new FormData();
@@ -351,9 +358,10 @@ export function useUploadProcess({
     try {
       console.log('🔄 [UPLOAD] Re-submitting with manual product info:', productInfo);
       updateState({ 
-        statusMessage: "Re-submitting with manual product information...",
+        statusMessage: "Processing with manual product information...",
         stage: "analyzing",
-        progress: 0
+        progress: 50,
+        manualValidationComplete: true // Mark that manual validation is complete
       });
 
       // Create new FormData with manual product information
@@ -380,38 +388,31 @@ export function useUploadProcess({
         throw new Error(`Re-submission failed with status ${response.status}`);
       }
 
-      // Process as normal streaming response
-      const reader = response.body?.getReader();
-      if (!reader) {
-        throw new Error("No response stream available");
-      }
+      // When manual input is provided, API returns JSON response (not streaming)
+      const responseData = await response.json();
+      console.log('✅ [UPLOAD] Manual validation response:', responseData);
 
-      let buffer = '';
-      
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+      if (responseData.success) {
+        // Update state to complete
+        updateState({ 
+          productId: responseData.productId,
+          stage: "complete",
+          statusMessage: responseData.message || "Upload completed successfully! Processing will continue in background.",
+          progress: 100,
+          imageUrls: responseData.imageUrls
+        });
 
-        buffer += new TextDecoder().decode(value);
-        const lines = buffer.split('\n');
+        toast.success("✅ Product uploaded with manual information! Background processing is now working...");
         
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          if (line.trim()) {
-            const data = parseStreamingData(line);
-            if (data) {
-              processStreamingData(data);
-            }
-          }
+        // Close modal immediately since processing continues in background
+        if (onSuccess) {
+          // Close modal immediately
+          onSuccess();
+          // Reset state for next upload after a short delay
+          setTimeout(() => reset(), 500);
         }
-      }
-      
-      if (buffer.trim()) {
-        const data = parseStreamingData(buffer);
-        if (data) {
-          processStreamingData(data);
-        }
+      } else {
+        throw new Error(responseData.error || 'Manual validation failed');
       }
 
     } catch (error) {
@@ -422,7 +423,7 @@ export function useUploadProcess({
       });
       toast.error("Failed to process with manual information. Please try again.");
     }
-  }, [files, processStreamingData, updateState]);
+  }, [files, updateState, onSuccess, reset]);
 
   const handleSaveDraft = useCallback(() => {
     updateState({ productStatus: "draft" });

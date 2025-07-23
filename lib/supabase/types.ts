@@ -227,6 +227,7 @@ export interface Database {
           model: string | null
           brand: string | null
           category: string | null
+          year_released: string | null
           status: 'uploaded' | 'processing' | 'phase_1' | 'phase_2' | 'phase_3' | 'phase_4' | 'completed' | 'published' | 'error' | 'paused' | 'cancelled'
           current_phase: number
           progress: number
@@ -268,6 +269,7 @@ export interface Database {
           model?: string | null
           brand?: string | null
           category?: string | null
+          year_released?: string | null
           status?: 'uploaded' | 'processing' | 'phase_1' | 'phase_2' | 'phase_3' | 'phase_4' | 'completed' | 'published' | 'error' | 'paused' | 'cancelled'
           current_phase?: number
           progress?: number
@@ -302,6 +304,7 @@ export interface Database {
           model?: string | null
           brand?: string | null
           category?: string | null
+          year_released?: string | null
           status?: 'uploaded' | 'processing' | 'phase_1' | 'phase_2' | 'phase_3' | 'phase_4' | 'completed' | 'published' | 'error' | 'paused' | 'cancelled'
           current_phase?: number
           progress?: number

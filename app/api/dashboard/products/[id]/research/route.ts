@@ -6,20 +6,21 @@ import { researchProductWithRealAPIs, checkRealAPIKeys } from '@/lib/real-market
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = createServerClient()
+    const resolvedParams = await params
     
     // Use demo user directly (no authentication required)
     const userId = '66c9ebb5-0eed-429a-acde-a0ecb85a8eb1'  // Demo user
-    console.log('🚀 [MARKET_RESEARCH] Starting AI research for product:', params.id)
+    console.log('🚀 [MARKET_RESEARCH] Starting AI research for product:', resolvedParams.id)
 
     // Get product details
     const { data: product, error: productError } = await supabase
       .from('products')
       .select('id, name, model, brand, category, status')
-      .eq('id', params.id)
+      .eq('id', resolvedParams.id)
       .eq('user_id', userId)
       .single()
 
@@ -65,7 +66,7 @@ export async function POST(
     console.log(`📊 [MARKET_RESEARCH] Research completed with ${researchResults.amazonResults.length} Amazon + ${researchResults.ebayResults.length} eBay results (URLs: ${urlType})`)
 
     // Save results to database
-    await saveMarketResearchToDatabase(params.id, researchResults, supabase)
+    await saveMarketResearchToDatabase(resolvedParams.id, researchResults, supabase)
 
     // Update product status to show research was completed
     await supabase
@@ -73,7 +74,7 @@ export async function POST(
       .update({
         updated_at: new Date().toISOString()
       })
-      .eq('id', params.id)
+      .eq('id', resolvedParams.id)
 
     return NextResponse.json({
       success: true,
@@ -117,19 +118,20 @@ export async function POST(
 // Get existing market research data
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const resolvedParams = await params;
     const supabase = createServerClient()
     const userId = '66c9ebb5-0eed-429a-acde-a0ecb85a8eb1'  // Demo user
     
-    console.log('📖 [MARKET_RESEARCH] Fetching research data for product:', params.id)
+    console.log('📖 [MARKET_RESEARCH] Fetching research data for product:', resolvedParams.id)
 
     // Get existing market research data
     const { data: researchData, error } = await supabase
       .from('market_research_data')
       .select('*')
-      .eq('product_id', params.id)
+      .eq('product_id', resolvedParams.id)
       .single()
 
     if (error && error.code !== 'PGRST116') {
@@ -146,7 +148,7 @@ export async function GET(
     // Transform data for frontend
     const transformedData = {
       hasData: true,
-      productId: params.id,
+      productId: resolvedParams.id,
       
       // Amazon data
       amazon: {

@@ -25,12 +25,21 @@ interface PhaseState {
   isRunning: boolean;
 }
 
+interface ProductImage {
+  id: string;
+  imageUrl: string;
+  fileName?: string;
+  fileSize?: number;
+  isPrimary: boolean;
+}
+
 export interface ProductAnalysisData {
   productName: string;
   model: string;
   confidence: number;
   itemCondition: string;
   conditionDetails: string;
+  images?: ProductImage[];
 }
 
 interface Phase1FormProps {
@@ -151,6 +160,40 @@ export function Phase1Form({
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Product Images */}
+        {localData.images && localData.images.length > 0 && (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Product Images</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {localData.images.map((image, index) => (
+                <div
+                  key={image.id || index}
+                  className="relative aspect-square bg-muted rounded-lg overflow-hidden"
+                >
+                  <img
+                    src={image.imageUrl}
+                    alt={image.fileName || `Product image ${index + 1}`}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      e.currentTarget.parentElement!.innerHTML = 
+                        `<div class="w-full h-full flex items-center justify-center text-xs text-muted-foreground">Image not available</div>`;
+                    }}
+                  />
+                  {image.isPrimary && (
+                    <div className="absolute top-1 left-1 bg-primary text-primary-foreground text-xs px-1 rounded">
+                      Primary
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {localData.images.length} images analyzed by AI
+            </p>
+          </div>
+        )}
+
         {/* Product Name */}
         <div className="space-y-2">
           <Label htmlFor="productName">Product Name</Label>

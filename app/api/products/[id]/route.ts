@@ -1,9 +1,10 @@
 import { createServerClient } from '@/lib/supabase/client';
 import { NextRequest, NextResponse } from 'next/server';
 
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = await params;
   const supabase = createServerClient();
-  const { id } = params;
+  const { id } = resolvedParams;
   const updates = await request.json();
 
   // Only allow updating certain fields

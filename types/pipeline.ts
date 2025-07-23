@@ -86,6 +86,7 @@ export const createProductInsert = (params: {
     current_phase: params.currentPhase || 1,
     ai_confidence: params.aiConfidence || null,
     error_message: null,
+    year_released: null,
   };
 };
 
@@ -141,6 +142,8 @@ export const createMarketResearchInsert = (params: {
     product_id: params.productId,
     amazon_price: params.amazonPrice || null,
     amazon_link: params.amazonLink || null,
+    ebay_price: null,
+    ebay_link: null,
     msrp: params.msrp || null,
     competitive_price: params.competitivePrice || null,
     brand: params.brand || null,

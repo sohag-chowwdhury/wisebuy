@@ -28,13 +28,13 @@ export async function POST(request: NextRequest) {
     let updatedCount = 0
 
     for (const record of marketRecords || []) {
-      const product = record.products
+      const product = Array.isArray(record.products) ? record.products[0] : record.products
       const updates: any = {}
 
       // Extract brand from product name or use existing product brand
-      if (!record.brand && product.brand) {
+      if (!record.brand && product?.brand) {
         updates.brand = product.brand
-      } else if (!record.brand && product.name) {
+      } else if (!record.brand && product?.name) {
         // Try to extract brand from product name (first word often is brand)
         const possibleBrand = product.name.split(' ')[0]
         const commonBrands = ['Samsung', 'Apple', 'Sony', 'LG', 'HP', 'Dell', 'Canon', 'Nikon', 'Nintendo', 'Microsoft', 'Cuisinart', 'KitchenAid', 'Dyson', 'Roomba', 'iRobot', 'Bissell', 'Shark', 'Black+Decker', 'DeWalt', 'Craftsman']

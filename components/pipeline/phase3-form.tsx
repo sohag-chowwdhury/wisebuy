@@ -17,6 +17,7 @@ import {
   Play,
   Square,
   RotateCcw,
+  Database,
 } from "lucide-react";
 
 // Phase completion status
@@ -358,6 +359,43 @@ export function Phase3Form({
             <ChevronRight className="h-4 w-4 ml-2" />
           </Button>
         </div>
+        {/* SEO Data Summary */}
+        <div className="mt-6 p-4 bg-muted rounded-lg">
+          <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+            <Search className="h-4 w-4" />
+            SEO Analysis Summary
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div>
+              <p className="font-medium text-muted-foreground">Content Optimization</p>
+              <p>Title Length: {localData.seoTitle.length} characters</p>
+              <p>Meta Description: {localData.metaDescription.length} characters</p>
+              <p>Keywords: {localData.keywords.length} defined</p>
+            </div>
+            <div>
+              <p className="font-medium text-muted-foreground">SEO Elements</p>
+              <p>URL Slug: {localData.urlSlug}</p>
+              <p>Tags: {localData.tags.length} defined</p>
+            </div>
+          </div>
+          <div className="mt-3">
+            <p className="text-xs font-medium text-muted-foreground mb-2">Keywords:</p>
+            <div className="flex flex-wrap gap-1">
+              {localData.keywords.map((keyword, index) => (
+                <Badge key={index} variant="outline" className="text-xs">
+                  {keyword}
+                </Badge>
+              ))}
+            </div>
+          </div>
+          <div className="mt-3 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1">
+              <Database className="h-3 w-3" />
+              SEO data from seo_analysis_data table, enhanced with product info
+            </span>
+          </div>
+        </div>
+
       </CardContent>
     </Card>
   );

@@ -34,8 +34,8 @@ export function createStreamingResponse() {
     await sendData({ type: "error", message });
   };
 
-  const sendResult = async (type: string, result: unknown) => {
-    await sendData({ type: type as StreamingData["type"], result });
+  const sendResult = async (type: string, result: any) => {
+    await sendData({ type: type as StreamingData["type"], result } as StreamingData);
   };
 
   const close = async () => {

@@ -22,8 +22,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Eye, Database, Search, Upload } from "lucide-react";
-import { toast } from "sonner";
-import type { PhaseStatus } from "@/types/pipeline";
+  import { toast } from "sonner";
+  import type { PhaseStatus } from "@/types/pipeline";
 
 // Pipeline steps configuration
 const PIPELINE_STEPS = [
@@ -79,11 +79,39 @@ interface ProductDetail {
   logs: any[];
 }
 
+// Function to fetch market research data from API
+const fetchMarketResearchData = async (productId: string) => {
+  try {
+    console.log('Fetching market research data for product:', productId);
+    
+    const response = await fetch(`/api/market-research-data?productId=${productId}`);
+    
+    if (!response.ok) {
+      throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+    }
+    
+    const result = await response.json();
+    
+    if (!result.success) {
+      throw new Error(result.error || 'API request failed');
+    }
+    
+    console.log('✅ Market research data fetched successfully:', result.data);
+    return result.data;
+    
+  } catch (error) {
+    console.error('❌ Error fetching market research data:', error);
+    return initialMarketResearchData;
+  }
+};
+
 // Default initial data (will be replaced by API data)
 const initialMarketResearchData: MarketResearchData = {
   marketResearch: {
     amazonPrice: 0,
     amazonLink: "",
+    ebayPrice: 0,
+    ebayLink: "",
     msrp: 0,
     competitivePrice: 0,
   },
@@ -139,7 +167,7 @@ export default function ProcessingPipeline() {
   // Legacy product state (keep for backward compatibility)
   const [product, setProduct] = useState<ProductDetail | null>(null);
 
-  // Pipeline state
+  // Pipeline state - Always start at Phase 1 (Product Analysis)
   const [currentStep, setCurrentStep] = useState(1);
   const [phaseStates, setPhaseStates] = useState<Record<number, PhaseState>>({
     1: { status: "completed", isRunning: false },
@@ -164,13 +192,127 @@ export default function ProcessingPipeline() {
   const [productListingData, setProductListingData] =
     useState<ProductListingData>(initialProductListingData);
 
+  // State for merged product data
+  const [mergedData, setMergedData] = useState<any>(null);
+
+  // Fetch merged data from all tables when component mounts
+  useEffect(() => {
+    if (productId) {
+      fetchMergedProductData(productId);
+    }
+  }, [productId]);
+
+  // Function to fetch merged data from the API
+  const fetchMergedProductData = async (productId: string) => {
+    try {
+      console.log('🔍 Fetching merged data for product:', productId);
+      
+      const response = await fetch(`/api/products/${productId}/merged-data`);
+      
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'API request failed');
+      }
+      
+      console.log('✅ Merged data fetched successfully:', result.data);
+      setMergedData(result.data);
+      
+      // Update individual phase data states with organized information
+      updatePhaseDataFromMergedData(result.data);
+      
+    } catch (error) {
+      console.error('❌ Error fetching merged data:', error);
+      toast.error('Failed to load product data');
+    }
+  };
+
+  // Function to organize merged data into phase-specific data structures
+  const updatePhaseDataFromMergedData = (data: any) => {
+    if (!data) return;
+
+    // Phase 1: Product Analysis - Basic product info
+    setProductAnalysisData({
+      productName: data.productInfo.name || "",
+      model: data.productInfo.model || "",
+      confidence: data.productInfo.aiConfidence || 85,
+      itemCondition: "good",
+      conditionDetails: data.productInfo.description || "Product analyzed and in good condition",
+      images: data.images || [],
+    });
+
+    // Phase 2: Market Research - Show brand info from products table + market research data
+    setMarketResearchData({
+      marketResearch: {
+        amazonPrice: data.marketResearch?.amazonPrice || 0,
+        amazonLink: data.marketResearch?.amazonLink || "",
+        ebayPrice: data.marketResearch?.ebayPrice || 0,
+        ebayLink: data.marketResearch?.ebayLink || "",
+        msrp: data.marketResearch?.msrp || 0,
+        competitivePrice: data.marketResearch?.competitivePrice || 0,
+      },
+      specifications: {
+        // Show brand and category from products table in market research phase
+        brand: data.productInfo.brand || data.marketResearch?.brand || "Unknown",
+        category: data.productInfo.category || data.marketResearch?.category || "General", 
+        year: data.productInfo.yearReleased || data.marketResearch?.year || "Unknown",
+        weight: data.marketResearch?.weight || "Unknown",
+        dimensions: data.marketResearch?.dimensions || 
+                   (data.productInfo.dimensions ? JSON.stringify(data.productInfo.dimensions) : "Unknown"),
+      },
+    });
+
+    // Phase 3: SEO Analysis - Combine SEO data with product info
+    if (data.seoAnalysis) {
+      setSEOAnalysisData({
+        seoTitle: data.seoAnalysis.seoTitle || `${data.productInfo.brand} ${data.productInfo.model}`,
+        urlSlug: data.seoAnalysis.urlSlug || `${data.productInfo.brand}-${data.productInfo.model}`.toLowerCase().replace(/\s+/g, '-'),
+        metaDescription: data.seoAnalysis.metaDescription || data.productInfo.description || "",
+        keywords: data.seoAnalysis.keywords || [data.productInfo.brand, data.productInfo.category].filter(Boolean),
+        tags: data.seoAnalysis.tags || [],
+      });
+    }
+
+    // Phase 4: Product Listing - Combine all relevant data for listing
+    setProductListingData({
+      images: data.images || [], // Use images from merged data
+      productTitle: data.seoAnalysis?.seoTitle || `${data.productInfo.brand} ${data.productInfo.model}`,
+      price: data.marketResearch?.competitivePrice || data.marketResearch?.msrp || 0,
+      publishingStatus: "draft",
+      brand: data.productInfo.brand || "Unknown",
+      category: data.productInfo.category || "General",
+      itemCondition: "good",
+      productDescription: data.productInfo.description || 
+                         `${data.productInfo.brand} ${data.productInfo.model} in excellent condition`,
+      keyFeatures: data.productInfo.keyFeatures || [],
+      channels: {
+        wordpress: false,
+        facebook: false,
+        ebay: false,
+        amazon: false,
+      },
+    });
+  };
+
   // Update component state when real-time data changes
   useEffect(() => {
     if (realtimeProduct) {
       // Convert real-time product to legacy format for compatibility
-      const productData = {
-        ...realtimeProduct,
+      const productData: ProductDetail = {
+        id: realtimeProduct.id,
+        name: realtimeProduct.name || "",
+        model: realtimeProduct.model || "",
+        brand: realtimeProduct.brand || undefined,
+        category: realtimeProduct.category || undefined,
+        status: realtimeProduct.status,
         currentPhase: realtimeProduct.current_phase,
+        createdAt: realtimeProduct.created_at,
+        updatedAt: realtimeProduct.updated_at,
+        images: [],
         analysisData: {
           productName: realtimeProduct.name,
           model: realtimeProduct.model,
@@ -178,10 +320,11 @@ export default function ProcessingPipeline() {
           itemCondition: "good",
           conditionDetails: "Product analyzed and in good condition"
         },
-        marketData: null, // Will be populated from separate API if needed
+        marketData: null, // Will be populated from merged data API
         seoData: null,
-        images: [],
-        listings: []
+        listings: [],
+        phases: realtimePhases || [],
+        logs: realtimeLogs || []
       };
       
       setProduct(productData);
@@ -198,10 +341,10 @@ export default function ProcessingPipeline() {
         setPhaseStates(newPhaseStates);
       }
 
-      // Update current step
-      if (realtimeProduct.current_phase) {
-        setCurrentStep(realtimeProduct.current_phase);
-      }
+      // Always start at Phase 1 (Product Analysis) when viewing a product
+      // This allows users to review all phases regardless of current progress
+      console.log(`🔍 Product ${realtimeProduct.id} is at phase ${realtimeProduct.current_phase}, but starting view at Phase 1`);
+      setCurrentStep(1);
 
       // Set basic analysis data
       setProductAnalysisData({
@@ -216,11 +359,9 @@ export default function ProcessingPipeline() {
 
   // Navigation handlers
   const handleStepClick = (stepId: number) => {
-    // Check if previous step is completed
-    if (stepId > 1 && phaseStates[stepId - 1].status !== "completed") {
-      toast.error(`Please complete Step ${stepId - 1} first`);
-      return;
-    }
+    // Allow free navigation between phases for review purposes
+    // Users can view any phase regardless of completion status
+    console.log(`📍 Navigating to Phase ${stepId}`);
     setCurrentStep(stepId);
   };
 

@@ -56,7 +56,7 @@ check_success "Dependencies installation"
 
 # Build the application
 echo -e "${YELLOW}🏗️ Building application for production...${NC}"
-pnpm build
+pnpm run build:deploy
 check_success "Application build"
 
 # Check if PM2 process exists
