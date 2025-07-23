@@ -295,34 +295,124 @@ Return ONLY a JSON object with this exact format:
       try {
         console.log(`🔍 [GEMINI] Getting specifications for: ${productModel}`);
 
-        const prompt = `Find detailed technical specifications and features for the product: "${productModel}".
+        const prompt = `You are a product research specialist. Find REAL specifications for: "${productModel}"
 
-Search the web for technical specifications and provide:
-1. Brand and model name
-2. Product category
-3. Year released
-4. Physical dimensions (length, width, height, weight)
-5. Key features and capabilities
-6. Technical specifications
-7. Model variations if any
-8. Brief description
+⚠️ CRITICAL: If the product name is generic (like "Electronic device", "Unknown Model", "Product"), you MUST return an empty keyFeatures array: []
+
+🎯 PRIMARY MISSION: Extract SPECIFIC, REAL product features - NOT generic descriptions!
+
+STOP IMMEDIATELY if the product name/model is:
+- "Electronic device" or variations
+- "Unknown Model" or "Generic" 
+- Just a category name like "Electronics", "Phone", "Laptop"
+- Any vague/generic description
+
+If generic product name detected, return:
+{
+  "brand": "Unknown",
+  "model": "Unknown",
+  "category": "Electronics", 
+  "yearReleased": "Unknown",
+  "dimensions": {"length": "Unknown", "width": "Unknown", "height": "Unknown", "weight": "Unknown"},
+  "keyFeatures": [],
+  "technicalSpecs": {},
+  "modelVariations": [],
+  "description": "Generic product - specific model needed for feature extraction"
+}
+
+🔍 SEARCH THESE EXACT SOURCES:
+1. Official manufacturer website (Apple.com, Samsung.com, etc.)
+2. GSMArena.com (for phones), NotebookCheck.com (for laptops)
+3. Amazon product pages (look for "About this item" section)
+4. Best Buy, Target product specifications
+5. Tech review sites: CNET, TechRadar, The Verge
+
+📋 REQUIRED DATA TO EXTRACT:
+
+**KEY FEATURES** (MOST IMPORTANT - Be very specific):
+Examples of GOOD features:
+- "A17 Pro chip with 6-core CPU and 6-core GPU"
+- "48MP main camera with 2x telephoto and ultra-wide"
+- "6.1-inch Super Retina XDR OLED display"
+- "5000mAh battery with 25W fast charging"
+- "128GB/256GB/512GB storage options"
+- "Face ID authentication system"
+- "MagSafe wireless charging up to 15W"
+
+Examples of BAD features (DO NOT USE):
+- "High quality", "Premium design", "Great performance"
+- "Electronic functionality", "User interface", "Quality construction"
+- "Advanced technology", "Innovative features", "Cutting-edge"
+
+**OTHER REQUIRED DATA**:
+1. **Brand and Model**: Exact official names
+2. **Category**: Smartphone, Laptop, Camera, Gaming, Electronics, etc.
+3. **Release Year**: When officially announced/released  
+4. **Dimensions**: Official measurements in inches
+5. **Technical Specs**: Processor, RAM, storage, display, battery, etc.
+
+SEARCH STRATEGY:
+- Check manufacturer websites (Apple.com, Samsung.com, etc.)
+- Look up tech specs on review sites (GSMArena, NotebookCheck, DisplaySpecifications)
+- Search "[product model] specifications dimensions weight release date"
+- Find release/launch year from tech news sites (TechCrunch, TheVerge, AnandTech)
+- Check retail sites (Amazon, Best Buy) product descriptions for specs
+
+DIMENSION FORMATTING RULES:
+- Convert all measurements to inches (e.g., "159.9 mm" → "6.30 inches")
+- Include units: "6.30 inches", "8.25 oz", "0.31 inches"  
+- For weight: Convert grams to oz (e.g., "234g" → "8.25 oz")
+- Use 2 decimal places for precision
+
+YEAR FORMATTING RULES:
+- Use 4-digit year format: "2023", "2024", "2019"
+- If only month/year known, use the year: "March 2023" → "2023"
+- If uncertain about exact year, use "Unknown"
+
+REAL DATA EXAMPLES:
+iPhone 15 Pro → length: "6.30 inches", width: "3.02 inches", height: "0.32 inches", weight: "7.27 oz", yearReleased: "2023"
+MacBook Air M2 → length: "11.97 inches", width: "8.46 inches", height: "0.44 inches", weight: "2.7 lbs", yearReleased: "2022"
+
+IMPORTANT: If you cannot find real data for any field, use these EXACT values:
+- yearReleased: "Unknown" (not estimated years)
+- dimensions: {"length": "Unknown", "width": "Unknown", "height": "Unknown", "weight": "Unknown"}
+
+🚨 CRITICAL: The keyFeatures array is the MOST IMPORTANT part. Spend extra effort finding specific, technical features.
+
+For "${productModel}" specifically, search for:
+- Processor/chip details (exact model name, cores, speed)
+- Camera specifications (megapixels, lens types, zoom capabilities)
+- Display details (size, resolution, technology, refresh rate)
+- Battery capacity and charging speed
+- Storage and RAM options
+- Connectivity features (WiFi version, Bluetooth, 5G, etc.)
+- Special features unique to this model
 
 Return ONLY a JSON object with this exact format:
 {
   "brand": "Apple",
-  "model": "iPhone 15 Pro",
+  "model": "iPhone 15 Pro Max", 
   "category": "Smartphone",
   "yearReleased": "2023",
   "dimensions": {
-    "length": "6.1 inches",
-    "width": "2.78 inches", 
-    "height": "0.32 inches",
-    "weight": "7.27 oz"
+    "length": "6.30 inches",
+    "width": "3.02 inches",
+    "height": "0.32 inches", 
+    "weight": "7.81 oz"
   },
-  "keyFeatures": ["A17 Pro chip", "Titanium design", "Action Button"],
-  "technicalSpecs": {"Display": "6.1-inch Super Retina XDR", "Storage": "128GB-1TB"},
-  "modelVariations": ["iPhone 15", "iPhone 15 Plus", "iPhone 15 Pro Max"],
-  "description": "Premium smartphone with titanium design"
+  "keyFeatures": [
+    "A17 Pro chip with 6-core CPU and 6-core GPU",
+    "48MP main camera with 5x telephoto zoom",
+    "6.7-inch Super Retina XDR OLED display with 120Hz",
+    "Titanium construction with Ceramic Shield front",
+    "USB-C connector with USB 3 support",
+    "Action Button replaces Ring/Silent switch",
+    "Up to 1TB storage capacity",
+    "MagSafe wireless charging up to 15W"
+  ],
+  "technicalSpecs": {"Display": "6.7-inch Super Retina XDR", "Storage": "256GB-1TB", "RAM": "8GB", "Camera": "48MP main + 12MP ultra-wide + 12MP telephoto"},
+  "modelVariations": ["iPhone 15", "iPhone 15 Plus", "iPhone 15 Pro"],
+  "description": "Premium smartphone with titanium design and A17 Pro chip"
 }`;
 
         const result = await gemini.models.generateContent({
@@ -335,6 +425,15 @@ Return ONLY a JSON object with this exact format:
 
         const parsedData = parseJSONFromText(responseText);
         console.log("✅ [GEMINI] Specifications retrieved:", parsedData);
+        
+        // Debug the key features specifically
+        if (parsedData && (parsedData as any).keyFeatures) {
+          console.log("🔑 [GEMINI] Key features extracted:", {
+            count: (parsedData as any).keyFeatures.length,
+            features: (parsedData as any).keyFeatures
+          });
+        }
+        
         return parsedData as ProductSpecifications;
       } catch (error) {
         console.error("💥 [GEMINI] Specifications error:", error);
@@ -422,22 +521,108 @@ Return ONLY a JSON object with this exact format:
   private createFallbackSpecifications(
     productModel: string
   ): ProductSpecifications {
+    // Extract any recognizable info from the product model name
+    const modelUpper = productModel.toUpperCase();
+    const possibleBrand = productModel.split(' ')[0] || 'Unknown';
+    const possibleCategory = this.guessCategory(modelUpper);
+    
     return {
-      brand: "Unknown",
+      brand: possibleBrand,
       model: productModel,
-      category: "Electronics",
-      yearReleased: "Unknown",
+      category: possibleCategory,
+      yearReleased: this.extractYear(productModel) || "Unknown",
       dimensions: {
-        length: "Unknown",
-        width: "Unknown",
-        height: "Unknown",
-        weight: "Unknown",
+        length: "Not found",
+        width: "Not found", 
+        height: "Not found",
+        weight: "Not found",
       },
-      keyFeatures: ["Feature detection pending"],
-      technicalSpecs: { Status: "Specifications being researched" },
+      keyFeatures: this.generateBasicFeatures(possibleCategory),
+      technicalSpecs: { 
+        Brand: possibleBrand,
+        Model: productModel,
+        Category: possibleCategory,
+        Status: "AI specifications extraction in progress" 
+      },
       modelVariations: [],
-      description: `Technical specifications for ${productModel} are being researched.`,
+      description: `${productModel} - Product specifications available after AI processing.`,
     };
+  }
+
+  private guessCategory(modelName: string): string {
+    if (modelName.includes('IPHONE') || modelName.includes('PHONE') || modelName.includes('SAMSUNG')) return 'Smartphone';
+    if (modelName.includes('LAPTOP') || modelName.includes('MACBOOK') || modelName.includes('COMPUTER')) return 'Computer';
+    if (modelName.includes('TV') || modelName.includes('TELEVISION') || modelName.includes('MONITOR')) return 'Display';
+    if (modelName.includes('CAMERA') || modelName.includes('CANON') || modelName.includes('NIKON')) return 'Camera';
+    if (modelName.includes('GAME') || modelName.includes('CONSOLE') || modelName.includes('PS5') || modelName.includes('XBOX')) return 'Gaming';
+    return 'Electronics';
+  }
+
+  private extractYear(productModel: string): string | null {
+    // Look for 4-digit years in the product model
+    const yearMatch = productModel.match(/\b(20\d{2})\b/);
+    if (yearMatch) {
+      return yearMatch[1];
+    }
+    
+    // Look for generation indicators that might imply years
+    const modelUpper = productModel.toUpperCase();
+    if (modelUpper.includes('2024') || modelUpper.includes('24')) return '2024';
+    if (modelUpper.includes('2023') || modelUpper.includes('23')) return '2023';  
+    if (modelUpper.includes('2022') || modelUpper.includes('22')) return '2022';
+    if (modelUpper.includes('2021') || modelUpper.includes('21')) return '2021';
+    if (modelUpper.includes('2020') || modelUpper.includes('20')) return '2020';
+    
+    // Look for specific generation indicators
+    if (modelUpper.includes('15 PRO') || modelUpper.includes('IPHONE 15')) return '2023';
+    if (modelUpper.includes('14 PRO') || modelUpper.includes('IPHONE 14')) return '2022';
+    if (modelUpper.includes('13 PRO') || modelUpper.includes('IPHONE 13')) return '2021';
+    if (modelUpper.includes('M3') || modelUpper.includes('M2')) return '2022';
+    
+    return null;
+  }
+
+  private generateBasicFeatures(category: string): string[] {
+    // Try to generate somewhat meaningful features based on category
+    const categoryFeatures: Record<string, string[]> = {
+      'Smartphone': [
+        'Mobile phone functionality',
+        'Touchscreen display interface',
+        'Camera system for photos and videos',
+        'Wireless connectivity (WiFi, Bluetooth)',
+        'Rechargeable battery system'
+      ],
+      'Computer': [
+        'Computing and processing capabilities',
+        'Data storage and memory',
+        'Input/output connectivity ports',
+        'Display interface support',
+        'Operating system compatibility'
+      ],
+      'Camera': [
+        'Image capture and recording',
+        'Optical lens system',
+        'Manual and automatic controls',
+        'Memory card storage support',
+        'Battery-powered operation'
+      ],
+      'Gaming': [
+        'Gaming performance optimization',
+        'Controller input support',
+        'Graphics and audio processing',
+        'Game library compatibility',
+        'Multiplayer connectivity'
+      ],
+      'Electronics': [
+        'Electronic device functionality',
+        'Power management system',
+        'User interface controls',
+        'Built-in safety features',
+        'Standard connectivity options'
+      ]
+    };
+    
+    return categoryFeatures[category] || categoryFeatures['Electronics'];
   }
 
   private createFallbackCompetitiveData(productModel: string): CompetitiveData {

@@ -142,6 +142,7 @@ const initialProductListingData: ProductListingData = {
   itemCondition: "good",
   productDescription: "",
   keyFeatures: [],
+  technicalSpecs: {},
   channels: {
     wordpress: false,
     facebook: false,
@@ -272,6 +273,8 @@ export default function ProcessingPipeline() {
         weight: data.marketResearch?.weight || "Unknown",
         dimensions: data.marketResearch?.dimensions || 
                    (data.productInfo.dimensions ? JSON.stringify(data.productInfo.dimensions) : "Unknown"),
+        // ✅ FIXED: Add technical specs from products table
+        technical_specs: data.productInfo.technicalSpecs || {},
       },
     });
 
@@ -298,6 +301,8 @@ export default function ProcessingPipeline() {
       productDescription: data.productInfo.description || 
                          `${data.productInfo.brand} ${data.productInfo.model} in excellent condition`,
       keyFeatures: data.productInfo.keyFeatures || [],
+      // ✅ FIXED: Add technical specs from products table
+      technicalSpecs: data.productInfo.technicalSpecs || {},
       channels: {
         wordpress: false,
         facebook: false,

@@ -19,6 +19,7 @@ import {
   Play,
   Square,
   RotateCcw,
+  Package,
 } from "lucide-react";
 
 // Phase completion status
@@ -47,6 +48,7 @@ export interface ProductListingData {
   itemCondition: string;
   productDescription: string;
   keyFeatures: string[];
+  technicalSpecs?: Record<string, any>;
   channels: {
     wordpress: boolean;
     facebook: boolean;
@@ -371,6 +373,35 @@ export function Phase4Form({
                 </Button>
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* Technical Specifications */}
+        <div className="space-y-4">
+          <Label>Technical Specifications</Label>
+          <div className="bg-muted/30 rounded-lg p-4">
+            {localData.technicalSpecs && Object.keys(localData.technicalSpecs).length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {Object.entries(localData.technicalSpecs).map(([key, value]) => (
+                  <div key={key} className="flex flex-col space-y-1">
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      {key}
+                    </span>
+                    <span className="text-sm">
+                      {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-6">
+                <Package className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">No technical specifications available</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Technical specs will be populated from the products table technical_specs column
+                </p>
+              </div>
+            )}
           </div>
         </div>
 

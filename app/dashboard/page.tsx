@@ -443,12 +443,6 @@ export default function Dashboard() {
 
   const handleMarketResearch = async (productId: string, productName: string) => {
     try {
-      // Show API cost notification first
-      toast.info(
-        "💰 API Cost Info: SerpAPI needed for 5000 products (~$50 USD). eBay API is free and will be integrated later.",
-        { duration: 5000 }
-      );
-      
       // Show loading toast
       const loadingToast = toast.loading(`🔍 Researching ${productName} on Amazon & eBay...`);
       
@@ -472,12 +466,12 @@ export default function Dashboard() {
           `✅ Research completed! Found ${result.data.amazonResults + result.data.ebayResults} results (${urlTypeText}). Average price: $${result.data.averagePrice.toFixed(2)}`
         );
         
-        // Show warning for fake URLs with updated API info
+        // Show warning for fake URLs
         if (result.urlType === 'fake' && result.warning) {
           setTimeout(() => {
             toast.warning(
-              `${urlTypeEmoji} Using demo data. Get SerpAPI key for real Amazon data ($50 for 5000 searches). eBay API integration coming soon (free).`,
-              { duration: 10000 }
+              `${urlTypeEmoji} Using demo data. Configure real marketplace APIs for live data.`,
+              { duration: 8000 }
             );
           }, 2000);
         }

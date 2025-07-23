@@ -40,6 +40,7 @@ export interface MarketResearchData {
     year: string;
     weight: string;
     dimensions: string;
+    technical_specs?: Record<string, any>;
   };
 }
 
@@ -189,6 +190,24 @@ export function Phase2Form({
         </div>
       </CardHeader>
       <CardContent className="space-y-8">
+        {/* API Cost Notification */}
+        <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <div className="p-1 rounded-full bg-amber-100 dark:bg-amber-900/20">
+              <Database className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            </div>
+            <div className="flex-1">
+              <h4 className="text-sm font-medium text-amber-800 dark:text-amber-200 mb-1">
+                📋 Note: Real API Integration Required
+              </h4>
+              <p className="text-xs text-amber-700 dark:text-amber-300 leading-relaxed">
+                For real Amazon & eBay links: <strong>SERP API</strong> needed (5000 searches for $50 USD) • <strong>eBay API</strong> is free. 
+                Currently showing demo links until APIs are configured.
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Market Research Section */}
         <div className="space-y-4">
           <h3 className="text-lg font-semibold">Market Research</h3>
@@ -389,7 +408,7 @@ export function Phase2Form({
             <Database className="h-4 w-4" />
             Merged Data Summary
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
             <div>
               <p className="font-medium text-muted-foreground">Product Info</p>
               <p>Brand: {localData.specifications.brand}</p>
@@ -404,8 +423,28 @@ export function Phase2Form({
             </div>
             <div>
               <p className="font-medium text-muted-foreground">Physical Specs</p>
-              <p>Weight: {localData.specifications.weight}</p>
-              <p>Dimensions: {localData.specifications.dimensions}</p>
+              <p>Weight: {(localData.specifications.weight === 'Unknown' || localData.specifications.weight === 'Not found') ? 'Not found - tune AI prompt' : localData.specifications.weight}</p>
+              <p>Dimensions: {
+                localData.specifications.dimensions === 'Unknown' || 
+                localData.specifications.dimensions === 'Not found' ||
+                localData.specifications.dimensions.includes('"Unknown"') ||
+                localData.specifications.dimensions.includes('"Not found"')
+                  ? 'Not found - tune AI prompt' 
+                  : localData.specifications.dimensions
+              }</p>
+            </div>
+            <div>
+              <p className="font-medium text-muted-foreground">Technical Specs</p>
+              {localData.specifications.technical_specs && Object.keys(localData.specifications.technical_specs).length > 0 ? (
+                Object.entries(localData.specifications.technical_specs).slice(0, 3).map(([key, value]) => (
+                  <p key={key} className="truncate text-xs">{key}: {String(value)}</p>
+                ))
+              ) : (
+                <p className="text-amber-600 text-xs">Not found - tune AI prompt</p>
+              )}
+              {localData.specifications.technical_specs && Object.keys(localData.specifications.technical_specs).length > 3 && (
+                <p className="text-xs text-muted-foreground">+{Object.keys(localData.specifications.technical_specs).length - 3} more...</p>
+              )}
             </div>
           </div>
           <div className="mt-3 text-xs text-muted-foreground">
