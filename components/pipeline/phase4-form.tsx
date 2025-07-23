@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ImageWithLoader } from "@/components/ui/image-with-loader";
 import {
   Upload,
   X,
@@ -227,16 +228,12 @@ export function Phase4Form({
                 key={image.id || index}
                 className="relative aspect-square bg-muted rounded-lg overflow-hidden"
               >
-                <img
+                <ImageWithLoader
                   src={image.imageUrl}
                   alt={image.fileName || `Product image ${index + 1}`}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    // Fallback for broken images
-                    e.currentTarget.style.display = 'none';
-                    e.currentTarget.parentElement!.innerHTML = 
-                      `<div class="w-full h-full flex items-center justify-center text-xs text-muted-foreground">Image not available</div>`;
-                  }}
+                  className="w-full h-full object-cover rounded-lg"
+                  containerClassName="w-full h-full"
+                  showSkeleton={true}
                 />
                 {image.isPrimary && (
                   <div className="absolute top-1 left-1 bg-primary text-primary-foreground text-xs px-1 rounded">

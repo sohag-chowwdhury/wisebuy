@@ -195,12 +195,21 @@ export default function ProcessingPipeline() {
   // State for merged product data
   const [mergedData, setMergedData] = useState<any>(null);
 
-  // Fetch merged data from all tables when component mounts
+  // Fetch merged data from all tables when component mounts AND when product updates
   useEffect(() => {
     if (productId) {
       fetchMergedProductData(productId);
     }
   }, [productId]);
+
+  // Refetch merged data when real-time product updates (for market research data)
+  useEffect(() => {
+    if (realtimeProduct && productId) {
+      // Refetch merged data when product status or current phase changes
+      console.log('🔄 [PIPELINE] Product updated, refetching merged data...');
+      fetchMergedProductData(productId);
+    }
+  }, [realtimeProduct?.updated_at, realtimeProduct?.current_phase, productId]);
 
   // Function to fetch merged data from the API
   const fetchMergedProductData = async (productId: string) => {

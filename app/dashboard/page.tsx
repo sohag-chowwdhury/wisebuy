@@ -51,6 +51,7 @@ import {
   DashboardFilters,
   ProductPipelineStatus,
 } from "@/lib/types";
+import { ProductImage } from "@/components/ui/image-with-loader";
 
 // API Data Management
 interface DashboardData {
@@ -280,6 +281,17 @@ export default function Dashboard() {
       productsError,
     });
 
+    // Debug: Check thumbnailUrl data
+    if (realtimeProducts && realtimeProducts.length > 0) {
+      console.log('🖼️ [Dashboard] Raw products from API:', realtimeProducts.slice(0, 2));
+      console.log('🖼️ [Dashboard] Image URLs debug:', realtimeProducts.map(p => ({
+        id: p.id,
+        name: p.name,
+        thumbnailUrl: (p as any).thumbnailUrl,
+        hasImage: !!(p as any).thumbnailUrl
+      })));
+    }
+
     if (realtimeProducts && realtimeProducts.length > 0) {
       console.log('✅ [Dashboard] Processing', realtimeProducts.length, 'products');
       console.log('📊 [Dashboard] Product statuses:', realtimeProducts.map(p => ({ id: p.id, name: p.name, status: p.status })));
@@ -340,7 +352,7 @@ export default function Dashboard() {
           status: p.status as ProductPipelineStatus,
           currentPhase: (p.current_phase || 1) as any, // Type fix - will be properly typed later
           progress: p.progress || 0,
-          imageUrl: '', // Will be populated from images if needed
+          thumbnailUrl: (p as any).thumbnailUrl, // Preserve thumbnailUrl from API response
           createdAt: p.created_at,
           updatedAt: p.updated_at,
           isProcessing: p.status === 'processing',
@@ -613,6 +625,48 @@ export default function Dashboard() {
     }
   };
 
+
+
+  // Auto-add test images when dashboard loads if products don't have images
+  const [hasCheckedForImages, setHasCheckedForImages] = useState(false);
+  
+  useEffect(() => {
+    const autoAddTestImages = async () => {
+      if (hasCheckedForImages || !realtimeProducts || realtimeProducts.length === 0) return;
+      
+      // Check if any products have images
+      const productsWithoutImages = realtimeProducts.filter(p => !(p as any).thumbnailUrl);
+      
+      if (productsWithoutImages.length > 0) {
+        console.log('🖼️ [Dashboard] Auto-adding test images for products without images');
+        
+        try {
+          const response = await fetch('/api/add-test-images', {
+            method: 'POST',
+          });
+
+          const result = await response.json();
+          
+          if (response.ok && result.total_processed > 0) {
+            console.log('✅ [Dashboard] Auto-added test images:', result.message);
+            // Wait a moment then refresh to show the new images
+            setTimeout(() => {
+              window.location.reload();
+            }, 1000);
+          }
+        } catch (error) {
+          console.error('❌ [Dashboard] Auto-add images error:', error);
+        }
+      }
+      
+      setHasCheckedForImages(true);
+    };
+
+    if (realtimeProducts && !productsLoading) {
+      autoAddTestImages();
+    }
+  }, [realtimeProducts, productsLoading, hasCheckedForImages]);
+
   return (
     <MainLayout>
       <div className="p-6 space-y-6">
@@ -791,17 +845,42 @@ export default function Dashboard() {
                   <div className="mx-auto w-24 h-24 bg-muted rounded-full flex items-center justify-center mb-4">
                     {filters.search ? (
                       <SearchX className="h-8 w-8 text-muted-foreground" />
+                    ) : filters.status !== 'all' ? (
+                      <Clock className="h-8 w-8 text-muted-foreground" />
                     ) : (
                       <Package className="h-8 w-8 text-muted-foreground" />
                     )}
                   </div>
                   <h3 className="text-lg font-semibold mb-2">
-                    {filters.search ? 'No products found' : 'No products yet'}
+                    {filters.search 
+                      ? 'No products found' 
+                      : filters.status === 'processing' 
+                        ? 'No processing products'
+                        : filters.status === 'completed' 
+                          ? 'No completed products'
+                          : filters.status === 'error' 
+                            ? 'No products with errors'
+                            : filters.status === 'paused'
+                              ? 'No paused products'
+                              : dashboardData.stats.totalProducts === 0
+                                ? 'No products yet'
+                                : 'No products found'
+                    }
                   </h3>
                   <p className="text-muted-foreground">
                     {filters.search 
                       ? `No products match your search "${filters.search}". Try different keywords or clear the search.`
-                      : 'Start by uploading some products to see them here.'
+                      : filters.status !== 'all' && dashboardData.stats.totalProducts > 0
+                        ? filters.status === 'processing'
+                          ? 'All your products have completed processing. Upload new products to see them here.'
+                          : filters.status === 'completed'
+                            ? 'No products have completed processing yet. Check back as your products finish processing.'
+                            : filters.status === 'error'
+                              ? 'Great! No products have encountered errors during processing.'
+                              : 'Try selecting a different status filter.'
+                        : dashboardData.stats.totalProducts === 0
+                          ? 'Start by uploading some products to see them here.'
+                          : 'Try adjusting your filters or search terms.'
                     }
                   </p>
                   {filters.search && (
@@ -811,6 +890,15 @@ export default function Dashboard() {
                       className="mt-4"
                     >
                       Clear Search
+                    </Button>
+                  )}
+                  {filters.status !== 'all' && dashboardData.stats.totalProducts > 0 && !filters.search && (
+                    <Button 
+                      variant="outline" 
+                      onClick={() => handleStatusChange('all')}
+                      className="mt-4"
+                    >
+                      View All Products
                     </Button>
                   )}
                 </div>
@@ -841,9 +929,11 @@ export default function Dashboard() {
                               onClick={stopPropagation}
                               className="flex-shrink-0"
                             />
-                            <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center flex-shrink-0">
-                              <Package className="h-5 w-5 text-muted-foreground" />
-                            </div>
+                            <ProductImage 
+                              src={product.thumbnailUrl} 
+                              productName={product.name}
+                              size="sm"
+                            />
                             <div className="min-w-0 flex-1">
                               <h3 className="font-semibold text-base truncate">
                                 {product.name}
@@ -972,9 +1062,11 @@ export default function Dashboard() {
                             onCheckedChange={(checked) => handleProductSelect(product.id, checked as boolean)}
                             onClick={stopPropagation}
                           />
-                          <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center">
-                            <Package className="h-6 w-6 text-muted-foreground" />
-                          </div>
+                          <ProductImage 
+                            src={product.thumbnailUrl} 
+                            productName={product.name}
+                            size="md"
+                          />
                         </div>
 
                         {/* Product Info */}
@@ -1121,18 +1213,7 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* Empty State */}
-            {!isLoading && !error && paginatedProducts.length === 0 && (
-              <div className="text-center py-8">
-                <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium mb-2">No products found</h3>
-                <p className="text-muted-foreground">
-                  {filters.search || filters.status !== "all"
-                    ? "Try adjusting your filters or search terms"
-                    : "Start by uploading your first product"}
-                </p>
-              </div>
-            )}
+
 
             {/* Pagination */}
             {!isLoading && !error && paginatedProducts.length > 0 && pagination.totalPages > 1 && (

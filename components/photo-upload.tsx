@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { UploadDialog } from "@/components/upload-dialog";
+import { ImageWithLoader } from "@/components/ui/image-with-loader";
 import { toast } from "sonner";
 
 export function PhotoUpload() {
@@ -359,15 +360,13 @@ export function PhotoUpload() {
                     )}
                     
                     <div className="aspect-square relative">
-                      {previewUrls[index] && (
-                        <Image
-                          src={previewUrls[index]}
-                          alt={`Preview of ${file.name}`}
-                          fill
-                          className="object-cover"
-                          sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                        />
-                      )}
+                      <ImageWithLoader
+                        src={previewUrls[index]}
+                        alt={`Preview of ${file.name}`}
+                        className="w-full h-full object-cover"
+                        containerClassName="w-full h-full"
+                        showSkeleton={true}
+                      />
                     </div>
 
                     <div className="p-2">

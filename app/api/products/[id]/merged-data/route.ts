@@ -102,25 +102,27 @@ export async function GET(
         createdAt: img.created_at
       })),
 
-      // Market Research Information (Phase 2)
-      marketResearch: marketResearchData ? {
-        amazonPrice: marketResearchData.amazon_price,
-        amazonLink: marketResearchData.amazon_link,
-        ebayPrice: marketResearchData.ebay_price,
-        ebayLink: marketResearchData.ebay_link,
-        msrp: marketResearchData.msrp,
-        competitivePrice: marketResearchData.competitive_price,
-        brand: marketResearchData.brand,
-        category: marketResearchData.category,
-        year: marketResearchData.year,
-        weight: marketResearchData.weight,
-        dimensions: marketResearchData.dimensions,
-        manufacturer: marketResearchData.manufacturer,
-        modelNumber: marketResearchData.model_number,
-        color: marketResearchData.color,
-        material: marketResearchData.material,
-        createdAt: marketResearchData.created_at,
-        updatedAt: marketResearchData.updated_at
+      // Market Research Information (Phase 2) - Get pricing from products table + market research data
+      marketResearch: marketResearchData || product.msrp || product.amazon_price ? {
+        // Get pricing data from products table (where it's actually stored) with fallbacks
+        amazonPrice: product.amazon_price || marketResearchData?.amazon_price || 0,
+        amazonLink: product.amazon_link || marketResearchData?.amazon_link || marketResearchData?.amazon_url || "",
+        ebayPrice: marketResearchData?.ebay_price || 0,
+        ebayLink: marketResearchData?.ebay_link || marketResearchData?.ebay_url || "",
+        msrp: product.msrp || marketResearchData?.msrp || 0,
+        competitivePrice: product.competitive_price || marketResearchData?.competitive_price || 0,
+        brand: marketResearchData?.brand || product.brand || "Unknown",
+        category: marketResearchData?.category || product.category || "General",
+        year: marketResearchData?.year || product.year_released || "Unknown",
+        weight: marketResearchData?.weight || "Unknown",
+        dimensions: marketResearchData?.dimensions || 
+                   (product.dimensions ? JSON.stringify(product.dimensions) : "Unknown"),
+        manufacturer: marketResearchData?.manufacturer || product.brand || "Unknown",
+        modelNumber: marketResearchData?.model_number || product.model || "Unknown",
+        color: marketResearchData?.color || null,
+        material: marketResearchData?.material || null,
+        createdAt: marketResearchData?.created_at || product.created_at,
+        updatedAt: marketResearchData?.updated_at || product.updated_at
       } : null,
 
       // SEO Analysis Information (Phase 4)

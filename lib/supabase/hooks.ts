@@ -38,11 +38,13 @@ export function useProducts() {
 
         const data = await response.json();
         console.log('📊 [useProducts] API response:', { 
-          dataCount: data?.products?.length || 0
+          dataCount: data?.products?.length || 0,
+          firstProduct: data.products?.[0],
+          hasImages: data.products?.some((p: any) => p.thumbnailUrl)
         });
 
         setProducts(data.products || [])
-        console.log('✅ [useProducts] Final products set:', data?.length || 0);
+        console.log('✅ [useProducts] Final products set:', data.products?.length || 0);
         
       } catch (err) {
         console.error('❌ [useProducts] Fetch error:', err);

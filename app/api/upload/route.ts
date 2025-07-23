@@ -327,6 +327,15 @@ async function runPipelinePhasesInBackground({ product, productName, model, bran
                 if (parsed.type === 'complete' && parsed.result && parsed.result.success) {
                   enrichData = lastResult;
                   console.log('🎯 [UPLOAD] Final accumulated enrichment data:', JSON.stringify(enrichData, null, 2));
+                  console.log('🔑 [UPLOAD] Enrichment data structure check:', {
+                    hasCurrentSellingPrice: !!enrichData.currentSellingPrice,
+                    hasOriginalMSRP: !!enrichData.originalMSRP,
+                    hasDimensions: !!enrichData.dimensions,
+                    hasWeight: !!enrichData.dimensions?.weight,
+                    hasPlatforms: !!enrichData.platforms,
+                    hasEbayData: !!enrichData.platforms?.ebay,
+                    allKeys: Object.keys(enrichData)
+                  });
                 }
                 if (parsed.type === 'error') {
                   throw new Error(parsed.message || 'Enrichment error');
@@ -507,7 +516,36 @@ async function runPipelinePhasesInBackground({ product, productName, model, bran
       .eq('phase_number', 1)
 
     // --- PHASE 2: Market Research + Platform Pricing ---
-    const basePrice = Math.floor(Math.random() * 400) + 150
+    console.log('💰 [UPLOAD] Processing Phase 2: Market Research with real enrichment data');
+    
+    // Extract MSRP and pricing from enrichment data (real AI data)
+    // The enrichment data is flattened from streaming responses (msrp, specifications, competitive)
+    const realMSRP = enrichData?.currentSellingPrice || 
+                     enrichData?.originalMSRP || 
+                     enrichData?.msrp ||
+                     enrichData?.price ||
+                     null;
+    const realAmazonPrice = enrichData?.currentSellingPrice || null;
+    const realCompetitivePrice = enrichData?.platforms?.ebay?.averagePrice || enrichData?.averageMarketPrice || null;
+    const realEbayPrice = enrichData?.platforms?.ebay?.averagePrice || null;
+    const basePrice = realMSRP || Math.floor(Math.random() * 400) + 150; // Use real MSRP or fallback
+    
+    console.log('💰 [UPLOAD] MSRP data from enrichment:', {
+      realMSRP,
+      realAmazonPrice,
+      realCompetitivePrice,
+      realEbayPrice,
+      usingFallback: !realMSRP,
+      enrichDataKeys: enrichData ? Object.keys(enrichData) : 'no enrichData',
+      // Debug: show actual price-related fields
+      priceFields: {
+        currentSellingPrice: enrichData?.currentSellingPrice,
+        originalMSRP: enrichData?.originalMSRP,
+        msrp: enrichData?.msrp,
+        price: enrichData?.price,
+        platforms: enrichData?.platforms ? Object.keys(enrichData.platforms) : 'no platforms'
+      }
+    });
 
     // Call Platform Pricing API to get real Amazon/eBay URLs and prices
     let platformPricingData = null;
@@ -537,97 +575,74 @@ async function runPipelinePhasesInBackground({ product, productName, model, bran
       console.error('❌ [UPLOAD] Platform pricing call failed:', pricingError);
     }
 
+    // ✅ FIXED: Use ONLY columns that exist in the basic product_market_data table
     const marketData = {
       product_id: product.id,
-      average_market_price: platformPricingData?.summary?.avg_price || basePrice,
+      
+      // Core market research fields that definitely exist
+      average_market_price: platformPricingData?.summary?.avg_price || realCompetitivePrice || basePrice,
       price_range_min: platformPricingData?.summary?.price_range?.min || Math.floor(basePrice * 0.7),
       price_range_max: platformPricingData?.summary?.price_range?.max || Math.floor(basePrice * 1.4),
       market_demand: 'medium',
       competitor_count: platformPricingData?.summary?.total_platforms || Math.floor(Math.random() * 15) + 5,
       trending_score: Math.floor(Math.random() * 40) + 60,
       seasonal_factor: 1.0,
-      best_selling_platforms: ['ebay', 'amazon', 'facebook'], // TEXT[]
-      recommended_categories: [enrichedCategory || 'Electronics', 'Tech'], // TEXT[]
-      data_sources: ['platform_pricing_api', 'market_api'], // TEXT[]
-      research_date: new Date().toISOString(),
-
-      // Product specifications (extracted from AI analysis)
-      brand: enrichedBrand || 'Unknown',
-      category: enrichedCategory || 'Electronics',
-      year: enrichData?.specifications?.yearReleased ? parseInt(enrichData.specifications.yearReleased) : 
-            (productName.match(/\b(19|20)\d{2}\b/)?.[0] ? parseInt(productName.match(/\b(19|20)\d{2}\b/)?.[0]) : null),
-      weight: enrichData?.specifications?.dimensions?.weight || null,
-      dimensions: enrichData?.specifications?.dimensions ? 
-        `${enrichData.specifications.dimensions.length || ''} x ${enrichData.specifications.dimensions.width || ''} x ${enrichData.specifications.dimensions.height || ''}`.replace(/\s+x\s+$/, '') : null,
-
-      // Additional product specification fields
-      manufacturer: enrichedBrand || 'Unknown',
-      model_number: enrichedModel || model || 'Unknown',
-      color: enrichData?.specifications?.color || null,
-      material: enrichData?.specifications?.material || null,
-
-      // Structured data for better querying
-      dimensions_structured: enrichData?.specifications?.dimensions ? {
-        length: { value: enrichData.specifications.dimensions.length, unit: 'inches' },
-        width: { value: enrichData.specifications.dimensions.width, unit: 'inches' },
-        height: { value: enrichData.specifications.dimensions.height, unit: 'inches' },
-        display: `${enrichData.specifications.dimensions.length || ''} x ${enrichData.specifications.dimensions.width || ''} x ${enrichData.specifications.dimensions.height || ''}`.replace(/\s+x\s+$/, '')
-      } : {},
-      weight_structured: enrichData?.specifications?.dimensions?.weight ? {
-        value: parseFloat(enrichData.specifications.dimensions.weight.replace(/[^0-9.]/g, '')),
-        unit: enrichData.specifications.dimensions.weight.replace(/[0-9.]/g, '').trim() || 'lbs',
-        display: enrichData.specifications.dimensions.weight
-      } : {},
-      specifications: {
-        power: enrichData?.specifications?.power || null,
-        capacity: enrichData?.specifications?.capacity || null,
-        features: enrichData?.specifications?.features || [],
-        warranty: enrichData?.specifications?.warranty || null,
-        energy_rating: enrichData?.specifications?.energyRating || null,
-        material: enrichData?.specifications?.material || null
-      },
-
-      // Pricing data
-      msrp: basePrice,
-      competitive_price: basePrice * 0.75,
-      amazon_price: platformPricingData?.amazon?.price || null,
-      amazon_link: platformPricingData?.amazon?.url || null,
-      amazon_verified: platformPricingData?.amazon?.verified || false,
-      amazon_last_checked: platformPricingData?.amazon?.last_checked || new Date().toISOString(),
-      amazon_confidence: platformPricingData?.amazon?.confidence || 0.0,
-      url_status_amazon: platformPricingData?.amazon ? 'active' : 'unknown',
-
-      // eBay pricing data  
-      ebay_price: platformPricingData?.ebay?.price || null,
-      ebay_url: platformPricingData?.ebay?.url || null,
-      ebay_verified: platformPricingData?.ebay?.verified || false,
-      ebay_last_checked: platformPricingData?.ebay?.last_checked || new Date().toISOString(),
-      ebay_confidence: platformPricingData?.ebay?.confidence || 0.0,
-      ebay_seller_rating: platformPricingData?.ebay?.seller_rating || null,
-      url_status_ebay: platformPricingData?.ebay ? 'active' : 'unknown',
-
-      // Facebook Marketplace data
-      facebook_price: platformPricingData?.facebook?.price || null,
-      facebook_url: platformPricingData?.facebook?.url || null,
-      url_status_facebook: platformPricingData?.facebook ? 'active' : 'unknown',
-
-      // Mercari data
-      mercari_price: platformPricingData?.mercari?.price || null,
-      mercari_url: platformPricingData?.mercari?.url || null,
-      url_status_mercari: platformPricingData?.mercari ? 'active' : 'unknown'
+      best_selling_platforms: ['ebay', 'amazon', 'facebook'],
+      recommended_categories: [enrichedCategory || 'Electronics', 'Tech'],
+      data_sources: ['ai_enrichment', 'platform_pricing_api', 'market_api'],
+      research_date: new Date().toISOString()
     }
     
-    console.log('💾 [UPLOAD] Saving market data with platform pricing:', {
-      amazon_price: marketData.amazon_price,
-      amazon_link: marketData.amazon_link ? 'found' : 'not found',
-      ebay_price: marketData.ebay_price,
-      ebay_url: marketData.ebay_url ? 'found' : 'not found',
-      total_platforms_found: platformPricingData?.summary?.total_platforms || 0
+    console.log('💾 [UPLOAD] Saving market data with core fields only:', {
+      average_market_price: marketData.average_market_price,
+      price_range_min: marketData.price_range_min,
+      price_range_max: marketData.price_range_max,
+      market_demand: marketData.market_demand,
+      competitor_count: marketData.competitor_count,
+      data_sources: marketData.data_sources,
+      total_platforms_found: platformPricingData?.summary?.total_platforms || 0,
+      note: 'Using only basic table columns to avoid database errors'
     });
 
-    await supabaseAdmin
+    const { error: marketDataError } = await supabaseAdmin
       .from('product_market_data')
       .upsert(marketData, { onConflict: 'product_id' })
+    
+    if (marketDataError) {
+      console.error('❌ [UPLOAD] Failed to save market data:', marketDataError);
+      throw new Error(`Market data save failed: ${marketDataError.message}`);
+    } else {
+      console.log('✅ [UPLOAD] Market data saved successfully');
+    }
+
+    // ✅ SAVE PRICING DATA TO PRODUCTS TABLE (where MSRP fields exist)
+    const productPricingUpdate = {
+      // Real MSRP and competitive pricing from AI enrichment
+      msrp: realMSRP || basePrice,
+      competitive_price: realCompetitivePrice || (realMSRP ? realMSRP * 0.75 : basePrice * 0.75),
+      amazon_price: realAmazonPrice || platformPricingData?.amazon?.price || null,
+      amazon_link: enrichData?.sources?.[0] || platformPricingData?.amazon?.url || null,
+      updated_at: new Date().toISOString()
+    };
+
+    console.log('💰 [UPLOAD] Saving pricing data to products table:', {
+      msrp: productPricingUpdate.msrp,
+      competitive_price: productPricingUpdate.competitive_price,
+      amazon_price: productPricingUpdate.amazon_price,
+      has_amazon_link: !!productPricingUpdate.amazon_link
+    });
+
+    const { error: pricingUpdateError } = await supabaseAdmin
+      .from('products')
+      .update(productPricingUpdate)
+      .eq('id', product.id);
+
+    if (pricingUpdateError) {
+      console.warn('⚠️ [UPLOAD] Could not save pricing data to products table:', pricingUpdateError.message);
+      // Don't throw error - market research data was saved successfully
+    } else {
+      console.log('✅ [UPLOAD] Pricing data saved to products table successfully');
+    }
     await supabaseAdmin
       .from('pipeline_phases')
       .update({ status: 'completed', progress_percentage: 100, completed_at: new Date().toISOString() })
