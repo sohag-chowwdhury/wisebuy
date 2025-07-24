@@ -10,6 +10,7 @@ import {
   SEOData,
   PricingRequest,
   SEORequest,
+  ComprehensiveProductAnalysis,
 } from "./types";
 import { APIError, parseJSONFromText, retryWithBackoff } from "./api-utils";
 import { cleanDirtyJsonStr } from "./utils";
@@ -54,6 +55,11 @@ export interface AIService {
   generateSEOContent(request: SEORequest): Promise<SEOData>;
 }
 
+// Comprehensive Ecommerce Analysis Service interface
+export interface ComprehensiveAnalysisService {
+  analyzePackagingImages(imageBuffers: Buffer[]): Promise<ComprehensiveProductAnalysis>;
+}
+
 // Gemini Service for web search capabilities
 export interface SearchService {
   getMSRPData(productModel: string): Promise<MSRPData>;
@@ -62,7 +68,7 @@ export interface SearchService {
 }
 
 // Claude Service Implementation
-export class ClaudeService implements AIService {
+export class ClaudeService implements AIService, ComprehensiveAnalysisService {
   private readonly VISION_SYSTEM_PROMPT = `You are a product analysis expert. Your task is to analyze product images and provide detailed information about them.
 
 For each set of images:
@@ -96,17 +102,108 @@ Key requirements:
 
 Return ONLY valid JSON without any explanatory text, comments, or markdown formatting.`;
 
+  private readonly COMPREHENSIVE_ANALYSIS_SYSTEM_PROMPT = `You are a product analysis expert specializing in comprehensive ecommerce product analysis. Your task is to analyze product packaging images to extract detailed information for ecommerce listing creation and perform comprehensive competitive pricing research.
+
+## Step-by-Step Analysis Process
+
+### Step 1: Image Analysis
+Carefully examine the product packaging and extract the following information directly visible on the package:
+
+**Primary Information:**
+- **Brand/Make:** (Look for brand name/logo)
+- **Model Number:** (Usually starts with # or Model, may include letters and numbers)
+- **Product Name/Description:** (Full product title as shown on package)
+- **UPC/Barcode:** (If visible)
+- **Item Number:** (Retailer-specific item numbers)
+
+**Dimensions (if visible):**
+- **Height:** (in inches and/or centimeters)
+- **Width/Length:** (in inches and/or centimeters) 
+- **Depth:** (in inches and/or centimeters)
+- **Weight:** (if listed on package)
+
+**Additional Package Details:**
+- **Package contents/features** (bullets, key features listed)
+- **Assembly requirements** (if mentioned)
+- **Power requirements** (watts, voltage, etc.)
+- **Material specifications** (if listed)
+
+### Step 2: Web Research
+Using the brand, model number, and product name identified:
+
+1. **Search for official product page:** Look for manufacturer website or primary retailer
+2. **Find complete specifications:** Search for missing dimensions, weight, detailed features
+3. **Gather competitive pricing:** Check Amazon, eBay, and other major retailers
+4. **Verify product information:** Cross-reference details found online with package information
+
+### Step 3: Competitive Pricing Research (CRITICAL PRIORITY)
+Search the following platforms and record current pricing with EXACT URLs:
+
+**Amazon Research:**
+- Find current listing price for NEW items
+- Check Prime shipping availability (true/false)
+- Identify seller type (Amazon, third-party seller name)
+- Record customer rating (1-5 stars) and total review count
+- **ALWAYS provide search URL:** https://www.amazon.com/s?k=[brand model]
+- **If found, provide direct product URL**
+
+ **eBay Research:**
+ - Record Buy It Now price range for NEW items (min/max)
+ - Record typical USED/auction price range (min/max)
+ - Search recent SOLD listings for actual selling prices
+ - Calculate average from recent completed sales
+ - **If specific product found, provide direct product URL in "url" field**
+ - **ALWAYS provide search URLs:**
+   - New items search: https://www.ebay.com/sch/i.html?_nkw=[brand model]
+   - Sold items search: https://www.ebay.com/sch/i.html?_nkw=[brand model]&LH_Sold=1&LH_Complete=1
+
+**Other Major Retailers:**
+- Check Home Depot, Lowe's, Walmart, Target (as applicable to product type)
+- Record current prices, sales, clearance pricing
+- Note availability status (in stock, out of stock, limited)
+- **Provide direct product URLs when found**
+
+**MANDATORY:** Even if exact product not found, ALWAYS provide search result URLs for manual verification
+
+### Step 4: Additional Ecommerce Requirements
+
+**Visual Content Audit:**
+- Document package condition (pristine/damaged/shelf wear)
+- Identify additional photos needed (lifestyle, detail shots, scale reference)
+- Note any missing or damaged components
+
+**Safety & Compliance Check:**
+- Look for UL/ETL/CSA safety marks on package/product
+- Document electrical specifications (voltage, amperage)
+- Check for California Prop 65 or other safety warnings
+- Identify country of origin if visible
+
+**Technical Deep Dive:**
+- Bulb type and specifications (E26, max wattage, LED compatibility)
+- Cord length (measure if accessible)
+- Assembly complexity assessment
+- Warranty terms (if listed on package)
+
+**Market Positioning Research:**
+- Search volume for relevant keywords
+- Seasonal demand patterns (if notable)
+- Target customer demographics
+- Complementary product opportunities
+
+**Logistics Assessment:**
+- Package weight (for shipping calculations)
+- Fragility level (affects shipping method/insurance)
+- Storage requirements
+- Return policy implications
+
+Return ONLY valid JSON without any explanatory text, comments, or markdown formatting.`;
+
   async analyzeImages(imageBuffers: Buffer[]): Promise<ProductAnalysis> {
     return retryWithBackoff(async () => {
       try {
-        console.log(`📸 [CLAUDE] Analyzing ${imageBuffers.length} images...`);
-
         const content: ContentBlockParam[] = [];
         imageBuffers.forEach((buffer, index) => {
           const mediaType = detectImageMediaType(buffer);
-          console.log(
-            `🔍 [CLAUDE] Detected image ${index + 1} format: ${mediaType}`
-          );
 
           content.push(
             {
@@ -139,12 +236,8 @@ Return ONLY valid JSON without any explanatory text, comments, or markdown forma
           throw new APIError("Unexpected response type from Claude");
         }
 
-        console.log("📝 [CLAUDE] Raw vision response:", responseContent.text);
-
         const cleanedJson = cleanDirtyJsonStr(responseContent.text);
         const result = JSON.parse(cleanedJson);
-
-        console.log("✅ [CLAUDE] Vision analysis complete:", result);
         return result;
       } catch (error) {
         console.error("💥 [CLAUDE] Vision analysis error:", error);
@@ -156,8 +249,6 @@ Return ONLY valid JSON without any explanatory text, comments, or markdown forma
   async generateSEOContent(request: SEORequest): Promise<SEOData> {
     return retryWithBackoff(async () => {
       try {
-        console.log(`🔍 [CLAUDE] Generating SEO for: ${request.productModel}`);
-
         const prompt = this.buildSEOPrompt(request);
 
         const message = await anthropic.messages.create({
@@ -172,14 +263,65 @@ Return ONLY valid JSON without any explanatory text, comments, or markdown forma
           throw new APIError("Unexpected response type from Claude");
         }
 
-        console.log("📝 [CLAUDE] Raw SEO response:", responseContent.text);
-
         const result = parseJSONFromText(responseContent.text);
-        console.log("✅ [CLAUDE] SEO generation complete:", result);
         return result as SEOData;
       } catch (error) {
         console.error("💥 [CLAUDE] SEO generation error:", error);
         throw new APIError("Failed to generate SEO content with Claude");
+      }
+    });
+  }
+
+  async analyzePackagingImages(imageBuffers: Buffer[]): Promise<ComprehensiveProductAnalysis> {
+    return retryWithBackoff(async () => {
+      try {
+        const content: ContentBlockParam[] = [];
+        imageBuffers.forEach((buffer, index) => {
+          const mediaType = detectImageMediaType(buffer);
+
+          content.push(
+            {
+              type: "text",
+              text: `Packaging Image ${index + 1}:`,
+            },
+            {
+              type: "image",
+              source: {
+                type: "base64",
+                media_type: mediaType as
+                  | "image/jpeg"
+                  | "image/png"
+                  | "image/webp",
+                data: buffer.toString("base64"),
+              },
+            }
+          );
+        });
+
+        // Add the comprehensive analysis prompt
+        content.push({
+          type: "text",
+          text: this.buildComprehensiveAnalysisPrompt(),
+        });
+
+        const message = await anthropic.messages.create({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 4096,
+          system: this.COMPREHENSIVE_ANALYSIS_SYSTEM_PROMPT,
+          messages: [{ role: "user", content }],
+        });
+
+        const responseContent = message.content[0];
+        if (responseContent.type !== "text") {
+          throw new APIError("Unexpected response type from Claude");
+        }
+
+        const cleanedJson = cleanDirtyJsonStr(responseContent.text);
+        const result = JSON.parse(cleanedJson);
+        return result as ComprehensiveProductAnalysis;
+      } catch (error) {
+        console.error("💥 [CLAUDE] Comprehensive packaging analysis error:", error);
+        throw new APIError("Failed to analyze packaging images with Claude");
       }
     });
   }
@@ -242,6 +384,199 @@ Return JSON with this exact structure:
   "tags": ["iPhone", "Apple", "Smartphone", "Used Electronics", "Unlocked Phone"]
 }`;
   }
+
+  private buildComprehensiveAnalysisPrompt(): string {
+    return `Analyze the provided product packaging images and perform comprehensive ecommerce analysis following these instructions:
+
+**CRITICAL DIMENSION EXTRACTION INSTRUCTIONS:**
+When you find dimension text like "5.9 inches", "7.6 inches", "2.3 lbs", etc., you MUST extract the numeric value:
+- "5.9 inches" → 5.9 (for width_inches/height_inches/depth_inches)
+- "2.3 lbs" → 2.3 (for weight_lbs)
+- "15.2 cm" → 15.2 (for height_cm/width_cm/depth_cm)
+- "1.1 kg" → 1.1 (for weight_kg)
+
+DO NOT leave dimension fields as null if you can see dimension text on the package or find them through web research.
+Parse ALL dimension strings to extract the numeric values only.
+
+Return your analysis in this EXACT JSON format:
+
+{
+  "basic_information": {
+    "brand": "",
+    "model_number": "",
+    "manufacturer": "",
+    "product_name": "",
+    "upc": "",
+    "item_number": ""
+  },
+  "specifications": {
+    "height_inches": null,
+    "height_cm": null,
+    "width_inches": null,
+    "width_cm": null,
+    "depth_inches": null,
+    "depth_cm": null,
+    "weight_lbs": null,
+    "weight_kg": null,
+    "weight_source": ""
+  },
+  "product_description": "",
+  "technical_details": {
+    "power_requirements": {
+      "voltage": "",
+      "wattage": "",
+      "bulb_type": "",
+      "number_of_bulbs": null,
+      "led_compatible": null
+    },
+    "electrical_specs": {
+      "cord_length": "",
+      "ul_listed": null,
+      "etl_listed": null,
+      "csa_listed": null
+    },
+    "assembly": {
+      "tools_required": null,
+      "estimated_assembly_time": "",
+      "difficulty_level": ""
+    },
+    "materials": {
+      "primary_material": "",
+      "finish": "",
+      "shade_material": ""
+    },
+    "features": []
+  },
+  "compliance_and_safety": {
+    "country_of_origin": "",
+    "prop_65_warning": null,
+    "safety_certifications": [],
+    "warranty_terms": ""
+  },
+  "websites_and_documentation": {
+    "official_product_page": "",
+    "instruction_manual": "",
+    "additional_resources": []
+  },
+  "competitive_pricing": {
+    "amazon": {
+      "price": null,
+      "prime_available": null,
+      "seller_type": "",
+      "rating": null,
+      "review_count": null,
+      "url": "",
+      "search_results_url": ""
+    },
+         "ebay": {
+       "new_price_range": {
+         "min": null,
+         "max": null
+       },
+       "used_price_range": {
+         "min": null,
+         "max": null
+       },
+       "recent_sold_average": null,
+       "url": "",
+       "search_results_url": "",
+       "sold_listings_url": ""
+     },
+    "other_retailers": [
+      {
+        "retailer": "",
+        "price": null,
+        "url": "",
+        "availability": ""
+      }
+    ]
+  },
+  "market_analysis": {
+    "target_demographics": [],
+    "seasonal_demand": "",
+    "complementary_products": [],
+    "key_selling_points": []
+  },
+  "logistics_assessment": {
+    "package_condition": "",
+    "fragility_level": "",
+    "shipping_considerations": "",
+    "storage_requirements": "",
+    "return_policy_implications": ""
+  },
+  "visual_content_needs": {
+    "additional_photos_needed": [],
+    "lifestyle_shots_required": null,
+    "detail_shots_required": null
+  },
+  "pricing_recommendation": {
+    "msrp": null,
+    "suggested_price_range": {
+      "min": null,
+      "max": null
+    },
+    "justification": "",
+    "profit_margin_estimate": ""
+  },
+  "analysis_metadata": {
+    "analysis_date": "${new Date().toISOString()}",
+    "analyst_notes": "",
+    "data_confidence_level": "",
+    "missing_information": []
+  }
+}
+
+**Special Instructions:**
+- Use null for numeric fields when data is not available
+- Use empty strings "" for text fields when data is not available  
+- Use empty arrays [] for list fields when no data is available
+- Always include search result URLs even if specific products aren't found
+- Set data_confidence_level to "high", "medium", or "low" based on information quality
+- Include any missing information in the missing_information array
+- Focus on accuracy over speed
+- Save search result URLs for manual price comparison
+
+**COMPETITIVE PRICING RESEARCH REQUIREMENTS:**
+
+For the competitive_pricing section, you MUST research and populate with REAL data:
+
+**Amazon Research:**
+- Search Amazon for the exact product model/brand
+- Record current listing price for NEW items
+- Check if Prime shipping is available
+- Identify seller type (Amazon direct, third-party, etc.)
+- Note customer rating and review count if available
+- ALWAYS provide search result URL: "https://www.amazon.com/s?k=[product model]"
+- If specific product found, provide direct product URL
+
+ **eBay Research:**
+ - Search eBay for both new and used pricing
+ - Record Buy It Now price ranges for new items
+ - Record typical used/auction price ranges
+ - Research recent sold listings to find actual selling prices
+ - **If specific product found, provide direct eBay product URL in "url" field**
+ - **ALWAYS provide these search URLs:**
+   - "search_results_url": "https://www.ebay.com/sch/i.html?_nkw=[product model]"
+   - "sold_listings_url": "https://www.ebay.com/sch/i.html?_nkw=[product model]&LH_Sold=1&LH_Complete=1"
+
+**Other Major Retailers:**
+- Check Home Depot, Lowe's, Walmart, Target (as applicable to product type)
+- Look for current pricing, sales, or clearance prices
+- Record availability status
+- Provide direct product URLs when found
+
+**CRITICAL:** Even if you cannot find exact pricing, you MUST still provide:
+1. Search result URLs for manual review
+2. Best estimates based on similar products
+3. Clear notes about data confidence level
+
+**MSRP RESEARCH (CRITICAL):**
+For the pricing_recommendation.msrp field, you MUST research and find:
+- Original Manufacturer Suggested Retail Price (MSRP) when the product was first released
+- Current retail price if still being sold new
+- Search manufacturer websites, official retailers, and product documentation
+- If MSRP not found, provide your best estimate based on similar products and note this in missing_information`;
+  }
 }
 
 // Gemini Service Implementation
@@ -249,8 +584,6 @@ export class GeminiService implements SearchService {
   async getMSRPData(productModel: string): Promise<MSRPData> {
     return retryWithBackoff(async () => {
       try {
-        console.log(`🔍 [GEMINI] Getting MSRP for: ${productModel}`);
-
         const prompt = `Find the current selling price for the used product: "${productModel}".
 
 This is for a used product reseller business. Search the web for current market pricing and provide:
@@ -276,10 +609,7 @@ Return ONLY a JSON object with this exact format:
         });
 
         const responseText = result.text || "";
-        console.log("📝 [GEMINI] Raw MSRP response:", responseText);
-
         const parsedData = parseJSONFromText(responseText);
-        console.log("✅ [GEMINI] MSRP data retrieved:", parsedData);
         return parsedData as MSRPData;
       } catch (error) {
         console.error("💥 [GEMINI] MSRP error:", error);
@@ -293,8 +623,6 @@ Return ONLY a JSON object with this exact format:
   ): Promise<ProductSpecifications> {
     return retryWithBackoff(async () => {
       try {
-        console.log(`🔍 [GEMINI] Getting specifications for: ${productModel}`);
-
         const prompt = `You are a product research specialist. Find REAL specifications for: "${productModel}"
 
 ⚠️ CRITICAL: If the product name is generic (like "Electronic device", "Unknown Model", "Product"), you MUST return an empty keyFeatures array: []
@@ -312,7 +640,7 @@ If generic product name detected, return:
   "brand": "Unknown",
   "model": "Unknown",
   "category": "Electronics", 
-  "yearReleased": "Unknown",
+  "yearReleased": "",
   "dimensions": {"length": "Unknown", "width": "Unknown", "height": "Unknown", "weight": "Unknown"},
   "keyFeatures": [],
   "technicalSpecs": {},
@@ -421,18 +749,7 @@ Return ONLY a JSON object with this exact format:
         });
 
         const responseText = result.text || "";
-        console.log("📝 [GEMINI] Raw specifications response:", responseText);
-
         const parsedData = parseJSONFromText(responseText);
-        console.log("✅ [GEMINI] Specifications retrieved:", parsedData);
-        
-        // Debug the key features specifically
-        if (parsedData && (parsedData as any).keyFeatures) {
-          console.log("🔑 [GEMINI] Key features extracted:", {
-            count: (parsedData as any).keyFeatures.length,
-            features: (parsedData as any).keyFeatures
-          });
-        }
         
         return parsedData as ProductSpecifications;
       } catch (error) {
@@ -445,10 +762,6 @@ Return ONLY a JSON object with this exact format:
   async getCompetitiveAnalysis(productModel: string): Promise<CompetitiveData> {
     return retryWithBackoff(async () => {
       try {
-        console.log(
-          `🔍 [GEMINI] Getting competitive analysis for: ${productModel}`
-        );
-
         const prompt = `Find competitive analysis and marketplace pricing for the product: "${productModel}".
 
 Search for current listings on major marketplaces:
@@ -495,10 +808,7 @@ Return ONLY a JSON object with this exact format:
         });
 
         const responseText = result.text || "";
-        console.log("📝 [GEMINI] Raw competitive response:", responseText);
-
         const parsedData = parseJSONFromText(responseText);
-        console.log("✅ [GEMINI] Competitive analysis complete:", parsedData);
         return parsedData as CompetitiveData;
       } catch (error) {
         console.error("💥 [GEMINI] Competitive analysis error:", error);
@@ -651,14 +961,13 @@ Return ONLY a JSON object with this exact format:
 export const claudeService = new ClaudeService();
 export const geminiService = new GeminiService();
 
+// Comprehensive analysis service instance
+export const comprehensiveAnalysisService = claudeService; // Use Claude for comprehensive analysis
+
 // Pricing calculation utility (extracted from pricing route)
 export function calculatePricingSuggestion(
   request: PricingRequest
 ): PricingSuggestion {
-  console.log(
-    `💰 [PRICING] Starting pricing calculation for: ${request.productModel}`
-  );
-
   // Extract non-zero competitive prices
   const competitivePrices = [];
 
@@ -801,6 +1110,5 @@ export function calculatePricingSuggestion(
     confidence: Math.round(confidence),
   };
 
-  console.log("💰 [PRICING] Final pricing suggestion:", result);
   return result;
 }

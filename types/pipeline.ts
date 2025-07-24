@@ -74,6 +74,8 @@ export const createProductInsert = (params: {
   userId: string;
   name: string;
   model?: string | null;
+  brand?: string | null;
+  category?: string | null;
   status?: ProductStatus;
   currentPhase?: number;
   aiConfidence?: number | null;
@@ -82,11 +84,34 @@ export const createProductInsert = (params: {
     user_id: params.userId,
     name: params.name,
     model: params.model || null,
+    brand: params.brand || null,
+    category: params.category || null,
+    description: null,
     status: params.status || "uploading",
     current_phase: params.currentPhase || 1,
     ai_confidence: params.aiConfidence || null,
     error_message: null,
     year_released: null,
+    technical_specs: {},
+    key_features: null,
+    dimensions: null,
+    model_variations: null,
+    seo_title: null,
+    meta_description: null,
+    url_slug: null,
+    keywords: null,
+    manufacturer: null,
+    upc: null,
+    item_number: null,
+    product_description: null,
+    width_inches: null,
+    height_inches: null,
+    depth_inches: null,
+    weight_lbs: null,
+    compliance_data: {},
+    documentation_data: {},
+    visual_content_needs: {},
+    analysis_metadata: {},
   };
 };
 
@@ -129,7 +154,7 @@ export const createProductAnalysisInsert = (params: {
 export const createMarketResearchInsert = (params: {
   productId: string;
   amazonPrice?: number | null;
-  amazonLink?: string | null;
+  amazonUrl?: string | null;
   msrp?: number | null;
   competitivePrice?: number | null;
   brand?: string | null;
@@ -140,17 +165,46 @@ export const createMarketResearchInsert = (params: {
 }): MarketResearchInsert => {
   return {
     product_id: params.productId,
-    amazon_price: params.amazonPrice || null,
-    amazon_link: params.amazonLink || null,
-    ebay_price: null,
-    ebay_link: null,
+    
+    // Core pricing data
     msrp: params.msrp || null,
     competitive_price: params.competitivePrice || null,
+    
+    // Amazon data
+    amazon_price: params.amazonPrice || null,
+    amazon_url: params.amazonUrl || null,
+    amazon_prime_available: null,
+    amazon_seller_type: null,
+    amazon_rating: null,
+    amazon_review_count: null,
+    amazon_search_results_url: null,
+    
+    // eBay data
+    ebay_price: null,
+    ebay_url: null,
+    ebay_new_price_min: null,
+    ebay_new_price_max: null,
+    ebay_used_price_min: null,
+    ebay_used_price_max: null,
+    ebay_recent_sold_average: null,
+    ebay_search_results_url: null,
+    ebay_sold_listings_url: null,
+    
+    // Product data
     brand: params.brand || null,
     category: params.category || null,
     year: params.year || null,
     weight: params.weight || null,
     dimensions: params.dimensions || null,
+    
+    // Additional fields from type definition
+    other_retailers_data: {},
+    target_demographics: null,
+    seasonal_demand_pattern: null,
+    complementary_products: null,
+    key_selling_points: null,
+    logistics_data: {},
+    pricing_recommendation: {},
   };
 };
 

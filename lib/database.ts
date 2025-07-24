@@ -15,7 +15,7 @@ import type { PricingRequest, CompetitiveData } from '@/lib/types';
 // =====================================================
 
 export async function executePhase1Analysis(productId: string): Promise<void> {
-  console.log(`🤖 Executing Phase 1: Product Analysis for ${productId}`);
+
 
   try {
     // 1. Update phase status to running
@@ -39,7 +39,7 @@ export async function executePhase1Analysis(productId: string): Promise<void> {
       throw new Error('No images found for analysis');
     }
 
-    console.log(`📸 Found ${images.length} images to analyze`);
+
 
     // 3. Analyze images using your existing Claude service
     const imageBuffers = await convertImagesToBuffers(images);
@@ -80,7 +80,7 @@ export async function executePhase1Analysis(productId: string): Promise<void> {
     // 6. Complete phase and trigger next
     await completePhaseAndTriggerNext(productId, 1);
 
-    console.log(`✅ Phase 1 completed - Data saved to product_analysis_data`);
+
 
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
@@ -94,7 +94,7 @@ export async function executePhase1Analysis(productId: string): Promise<void> {
 // =====================================================
 
 export async function executePhase2MarketResearch(productId: string): Promise<void> {
-  console.log(`📊 Executing Phase 2: Data Enrichment for ${productId}`);
+
 
   try {
     // 1. Update phase status
@@ -111,7 +111,7 @@ export async function executePhase2MarketResearch(productId: string): Promise<vo
       throw new Error('No analysis data found from Phase 1');
     }
 
-    console.log(`📋 Using analysis data: ${analysisData.product_name}`);
+
 
     // 3. Call your existing enrich API endpoint
     const enrichData = await callEnrichAPI(analysisData.model || analysisData.product_name);
@@ -143,7 +143,7 @@ export async function executePhase2MarketResearch(productId: string): Promise<vo
     // 5. Complete phase and trigger next
     await completePhaseAndTriggerNext(productId, 2);
 
-    console.log(`✅ Phase 2 completed - Data saved to product_market_data`);
+
 
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
@@ -157,7 +157,7 @@ export async function executePhase2MarketResearch(productId: string): Promise<vo
 // =====================================================
 
 export async function executePhase3ListingGeneration(productId: string): Promise<void> {
-  console.log(`💰 Executing Phase 3: Smart Pricing for ${productId}`);
+
 
   try {
     // 1. Update phase status
@@ -176,7 +176,7 @@ export async function executePhase3ListingGeneration(productId: string): Promise
       throw new Error('Missing data from previous phases');
     }
 
-    console.log(`💰 Calculating pricing for: ${analysisData.product_name}`);
+
 
     // 3. Prepare pricing request for your existing pricing API
     const pricingRequest: PricingRequest = {
@@ -255,7 +255,7 @@ export async function executePhase3ListingGeneration(productId: string): Promise
     // 7. Complete phase and trigger next
     await completePhaseAndTriggerNext(productId, 3);
 
-    console.log(`✅ Phase 3 completed - ${listings.length} listings saved with pricing`);
+
 
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
@@ -269,7 +269,7 @@ export async function executePhase3ListingGeneration(productId: string): Promise
 // =====================================================
 
 export async function executePhase4MonitoringSetup(productId: string): Promise<void> {
-  console.log(`🌐 Executing Phase 4: SEO & Publishing for ${productId}`);
+
 
   try {
     // 1. Update phase status
@@ -372,12 +372,11 @@ export async function executePhase4MonitoringSetup(productId: string): Promise<v
       })
       .eq('id', productId);
 
-    console.log(`✅ Phase 4 completed - SEO & monitoring setup saved`);
-    console.log(`🎉 All phases completed for product ${productId}`);
+
 
     // Automatically trigger AI market research after pipeline completion
     try {
-      console.log(`🔍 [DATABASE] Triggering automatic market research for completed product: ${productId}`);
+  
       
       const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
       const researchResponse = await fetch(`${baseUrl}/api/dashboard/products/${productId}/research`, {
@@ -387,7 +386,7 @@ export async function executePhase4MonitoringSetup(productId: string): Promise<v
       
       if (researchResponse.ok) {
         const researchResult = await researchResponse.json();
-        console.log(`✅ [DATABASE] Auto market research completed:`, researchResult.message);
+
       } else {
         console.warn(`⚠️ [DATABASE] Market research failed:`, await researchResponse.text());
       }
@@ -412,7 +411,7 @@ export async function executePhase4MonitoringSetup(productId: string): Promise<v
  */
 async function callEnrichAPI(productModel: string): Promise<any> {
   try {
-    console.log(`🔍 Calling enrich API for: ${productModel}`);
+
 
     // Use your existing gemini service directly
     const [msrpData, specifications, competitiveData] = await Promise.all([
@@ -443,7 +442,7 @@ async function callEnrichAPI(productModel: string): Promise<any> {
  */
 async function callSEOAPI(seoRequest: any): Promise<any> {
   try {
-    console.log(`🌐 Calling SEO API for: ${seoRequest.productModel}`);
+
 
     // Use your existing claude service for SEO generation
     const seoData = await claudeService.generateSEOContent(seoRequest);
@@ -712,7 +711,7 @@ async function markPhaseAsFailed(productId: string, phaseNumber: number, errorMe
  */
 export async function startPipelineProcessing(productId: string): Promise<void> {
   try {
-    console.log(`🚀 Starting pipeline processing for product ${productId}`);
+  
 
     // Update product status
     await supabaseAdmin
@@ -736,7 +735,7 @@ export async function startPipelineProcessing(productId: string): Promise<void> 
     // ✅ EXECUTE PHASE 1 USING YOUR EXISTING AI SERVICES
     await executePhase1Analysis(productId);
 
-    console.log(`🚀 Pipeline started successfully for product ${productId}`);
+
 
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
@@ -774,7 +773,7 @@ export async function startPipelineProcessing(productId: string): Promise<void> 
  */
 export async function fetchDashboardStats(userId: string): Promise<any> {
   try {
-    console.log(`📊 [DB] Fetching dashboard stats for user: ${userId}`);
+
 
     const { data: stats, error } = await supabaseAdmin
       .from('products')
@@ -799,7 +798,7 @@ export async function fetchDashboardStats(userId: string): Promise<any> {
       totalPublished: statusCounts['published'] || 0
     };
 
-    console.log(`✅ [DB] Dashboard stats calculated:`, dashboardStats);
+
     return dashboardStats;
 
   } catch (error) {
@@ -824,7 +823,7 @@ export async function fetchDashboardProducts(
     const { status, search, page = 1, limit = 10 } = options;
     const offset = (page - 1) * limit;
 
-    console.log(`📦 [DB] Fetching dashboard products for user: ${userId}`, { status, search, page, limit });
+
 
     // Build base query
     let query = supabaseAdmin
@@ -914,7 +913,7 @@ export async function fetchDashboardProducts(
       };
     });
 
-    console.log(`✅ [DB] Fetched ${transformedProducts.length} products, total: ${count}`);
+
 
     return {
       products: transformedProducts,
@@ -950,7 +949,7 @@ function calculateProgressFromPhase(phase: number, status: string): number {
  */
 export async function getProductWithDetails(productId: string, userId?: string): Promise<any> {
   try {
-    console.log(`🔍 [DB] Fetching product details for: ${productId}`);
+
 
     let query = supabaseAdmin
       .from('products')
@@ -977,7 +976,7 @@ export async function getProductWithDetails(productId: string, userId?: string):
       throw new Error(`Failed to fetch product: ${error.message}`);
     }
 
-    console.log(`✅ [DB] Product details fetched for: ${productId}`);
+
     return product;
 
   } catch (error) {

@@ -43,7 +43,7 @@ export class MarketplaceSearchService {
   } = {}): Promise<{ [platform: string]: SearchResult | null }> {
     const { condition = 'used', maxResults = 1, platforms = ['amazon', 'ebay'] } = options;
     
-    console.log(`🔍 [MARKETPLACE-SEARCH] Searching for: "${query}" (${condition})`);
+  
     
     const results: { [platform: string]: SearchResult | null } = {};
     
@@ -88,7 +88,7 @@ export class MarketplaceSearchService {
         return await this.searchAmazonViaRapidAPI(query, condition);
       }
       
-      console.log('⚠️ [MARKETPLACE-SEARCH] No Amazon API keys configured');
+  
       return null;
       
     } catch (error) {
@@ -103,7 +103,7 @@ export class MarketplaceSearchService {
   private async searchEbay(query: string, condition: string, maxResults: number): Promise<SearchResult | null> {
     try {
       if (!this.config.ebayApiKey) {
-        console.log('⚠️ [MARKETPLACE-SEARCH] No eBay API key configured');
+    
         return null;
       }
 
@@ -124,7 +124,7 @@ export class MarketplaceSearchService {
       
       const items = data.findItemsByKeywordsResponse?.[0]?.searchResult?.[0]?.item;
       if (!items || items.length === 0) {
-        console.log('⚠️ [MARKETPLACE-SEARCH] No eBay results found');
+
         return null;
       }
 
@@ -141,7 +141,7 @@ export class MarketplaceSearchService {
         last_updated: new Date().toISOString()
       };
 
-      console.log('✅ [MARKETPLACE-SEARCH] Found eBay result:', result.title, result.price);
+      
       return result;
 
     } catch (error) {
@@ -156,7 +156,7 @@ export class MarketplaceSearchService {
   private async searchGoogleShopping(query: string, condition: string): Promise<{ amazon?: SearchResult; ebay?: SearchResult }> {
     try {
       if (!this.config.serpApiKey) {
-        console.log('⚠️ [MARKETPLACE-SEARCH] No SerpAPI key configured');
+    
         return {};
       }
 
@@ -209,7 +209,7 @@ export class MarketplaceSearchService {
         }
       }
 
-      console.log('✅ [MARKETPLACE-SEARCH] SerpAPI results:', Object.keys(results));
+  
       return results;
 
     } catch (error) {
@@ -222,19 +222,19 @@ export class MarketplaceSearchService {
   private async searchAmazonPA(query: string, condition: string): Promise<SearchResult | null> {
     // Amazon Product Advertising API integration
     // Requires Amazon Associates account and approval
-    console.log('⚠️ [MARKETPLACE-SEARCH] Amazon PA API not implemented - requires approval');
+
     return null;
   }
 
   private async searchAmazonViaSerpAPI(query: string, condition: string): Promise<SearchResult | null> {
     // Use SerpAPI to search Amazon directly
-    console.log('⚠️ [MARKETPLACE-SEARCH] Amazon via SerpAPI not implemented');
+
     return null;
   }
 
   private async searchAmazonViaRapidAPI(query: string, condition: string): Promise<SearchResult | null> {
     // Use RapidAPI marketplace endpoints for Amazon
-    console.log('⚠️ [MARKETPLACE-SEARCH] Amazon via RapidAPI not implemented');
+
     return null;
   }
 
