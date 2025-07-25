@@ -41,22 +41,22 @@ export async function executePhase1Analysis(productId: string): Promise<void> {
 
 
 
-    // 3. Analyze images using your existing Claude service
+    // 3. Analyze images using the comprehensive Claude service (extracts dimensions, weight, specs)
     const imageBuffers = await convertImagesToBuffers(images);
-    const analysisResult = await claudeService.analyzeImages(imageBuffers);
+    const analysisResult = await claudeService.analyzePackagingImages(imageBuffers);
 
-    // 4. Save analysis results to product_analysis_data table
+    // 4. Save comprehensive analysis results to product_analysis_data table
     const { error: saveError } = await supabaseAdmin
       .from('product_analysis_data')
       .insert({
         product_id: productId,
-        product_name: analysisResult.model || 'Unknown Product',
-        model: analysisResult.model,
-        confidence: analysisResult.confidence,
-        item_condition: analysisResult.condition,
-        condition_details: analysisResult.defects?.join(', ') || 'No defects noted',
-        detected_categories: categorizeFromModel(analysisResult.model),
-        detected_brands: extractBrandFromModel(analysisResult.model),
+        product_name: analysisResult.basic_information?.product_name || 'Unknown Product',
+        model: analysisResult.basic_information?.model_number,
+        confidence: 95, // Comprehensive analysis has high confidence
+        item_condition: 'good', // Default condition
+        condition_details: analysisResult.product_description || 'Product analyzed successfully',
+        detected_categories: [analysisResult.basic_information?.category_name],
+        detected_brands: [analysisResult.basic_information?.brand],
         color_analysis: {},
         image_quality_score: calculateImageQuality(images),
         completeness_score: calculateCompleteness(images)
@@ -67,13 +67,27 @@ export async function executePhase1Analysis(productId: string): Promise<void> {
       throw saveError;
     }
 
-    // 5. Update product with analysis results
+    // 5. Update product with comprehensive analysis results (including dimensions, weight, specs)
     await supabaseAdmin
       .from('products')
       .update({
-        name: analysisResult.model || 'Unknown Product',
-        model: analysisResult.model,
-        ai_confidence: analysisResult.confidence
+        name: analysisResult.basic_information?.product_name || 'Unknown Product',
+        model: analysisResult.basic_information?.model_number,
+        brand: analysisResult.basic_information?.brand,
+        category: analysisResult.basic_information?.category_name,
+        manufacturer: analysisResult.basic_information?.manufacturer,
+        product_description: analysisResult.product_description,
+        // Extract dimensions and weight from comprehensive analysis
+        width_inches: analysisResult.specifications?.width_inches,
+        height_inches: analysisResult.specifications?.height_inches,
+        depth_inches: analysisResult.specifications?.depth_inches,
+        weight_lbs: analysisResult.specifications?.weight_lbs,
+        // Technical specifications
+        technical_specs: analysisResult.technical_details,
+        // Key features from AI analysis
+        key_features: analysisResult.technical_details?.features || [],
+        woocommerce_category_id: analysisResult.basic_information?.category_id,
+        ai_confidence: 95
       })
       .eq('id', productId);
 

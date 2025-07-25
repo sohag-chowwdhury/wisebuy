@@ -26,7 +26,7 @@ GEMINI_API_KEY=your-gemini-api-key-here
 NEXT_PUBLIC_BASE_URL=http://154.53.32.15:3001
 
 # For development
-# NEXT_PUBLIC_BASE_URL=http://localhost:3000
+# NEXT_PUBLIC_BASE_URL=http://:3000
 
 # =============================
 # WORDPRESS/WOOCOMMERCE (OPTIONAL)

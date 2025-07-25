@@ -6,7 +6,7 @@ module.exports = {
     cwd: './services/flip-forge',
     env: {
       NODE_ENV: 'production',
-      PORT: 3001
+      PORT: 4002
     },
     max_memory_restart: '500M',
     instances: 1,
