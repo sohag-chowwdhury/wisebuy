@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/admin'
 
-export async function POST(request: NextRequest) {
+export async function POST(_request: NextRequest) {
   try {
     console.log('🔄 [MIGRATE] Adding brand, year, weight, and dimensions to product_market_data...')
 
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Update existing records with brand from products table
-    const { error: updateError } = await supabase.rpc('exec_sql', {
+    const { error: _updateError } = await supabase.rpc('exec_sql', {
       sql_query: `
         UPDATE product_market_data 
         SET brand = products.brand
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
         hasNewFields
       }, { status: 500 })
 
-    } catch (fallbackError) {
+    } catch {
       return NextResponse.json({
         success: false,
         error: error instanceof Error ? error.message : 'Migration failed',

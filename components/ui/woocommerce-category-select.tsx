@@ -91,7 +91,7 @@ export function WooCommerceCategorySelect({
       setCustomValue('');
       setIsCustomInput(false);
     }
-  }, [value, categories]);
+  }, [value, categories]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchCategories = async () => {
     setLoading(true);

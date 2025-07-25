@@ -89,7 +89,7 @@ export async function POST(
 
       case 'simulate_processing':
         // Simulate processing by rapidly advancing through phases
-        let processPhase = product.current_phase || 1
+        const processPhase = product.current_phase || 1
         
         if (processPhase > 4) {
           return NextResponse.json({

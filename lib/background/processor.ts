@@ -3,7 +3,7 @@ import { createServerClient } from '../supabase/client'
 import { Database } from '../supabase/types'
 
 type BackgroundJob = Database['public']['Tables']['background_jobs']['Row']
-type PipelinePhase = Database['public']['Tables']['pipeline_phases']['Row']
+// PipelinePhase type removed as it's not used
 
 export class BackgroundProcessor {
   private supabase = createServerClient()
@@ -558,7 +558,7 @@ private generateOptimizedDescription(product: any): string {
   return `Discover amazing deals on ${name} in ${condition} condition. Perfect for both personal use and gifting.${featuresText} Shop with confidence - fast shipping, secure payment, and excellent customer service guaranteed.`
 }
 
-private generateContentSuggestions(product: any): string[] {
+private generateContentSuggestions(_product: any): string[] {
   return [
     'Add more detailed product specifications',
     'Include high-quality product images from multiple angles',

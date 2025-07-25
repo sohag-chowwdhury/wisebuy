@@ -1,6 +1,6 @@
 // lib/background-processor.ts
 import { supabase } from '@/lib/supabase/client';
-import { createClient } from '@supabase/supabase-js';
+// createClient import removed as it's not used
 
 interface QueuedProduct {
   productId: string;

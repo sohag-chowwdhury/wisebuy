@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './client'
 import { Database } from './types'
-import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
+// RealtimePostgresChangesPayload import removed as it's not used
 // Note: Authentication disabled for now, will be implemented later
 
 type Product = Database['public']['Tables']['products']['Row']

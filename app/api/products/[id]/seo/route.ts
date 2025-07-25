@@ -8,7 +8,7 @@ export async function POST(
   try {
     const resolvedParams = await params;
     const productId = resolvedParams.id;
-    const body = await request.json();
+    const _body = await request.json();
 
     console.log(`🔄 [API] Restarting Phase 4 (SEO & Publishing) for product: ${productId}`);
 

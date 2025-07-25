@@ -173,7 +173,7 @@ function calculateProgressFromPhases(phases: any[]): number {
 }
 
 // Helper function to calculate progress based on phase and status (legacy fallback)
-function getProgressFromPhase(phase: number, status: string): number {
+function _getProgressFromPhase(phase: number, status: string): number {
   if (status === 'completed') return 100
   if (status === 'error') return Math.max(0, (phase - 1) * 25)
   if (status === 'processing') {

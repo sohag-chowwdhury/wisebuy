@@ -222,7 +222,7 @@ export default function Dashboard() {
   // };
 
   // Fetch dashboard products
-  const fetchProducts = async () => {
+  const _fetchProducts = async () => {
     try {
       const params = new URLSearchParams({
         page: filters.page.toString(),
@@ -509,7 +509,7 @@ export default function Dashboard() {
         other: false,
       });
       
-    } catch (error) {
+    } catch {
       toast.dismiss();
       toast.error("Failed to publish products. Please try again.");
     }

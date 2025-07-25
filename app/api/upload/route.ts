@@ -3,7 +3,7 @@ import { supabase as supabaseAdmin } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { claudeService } from '@/lib/ai-services'
 
-interface UploadResponse {
+interface _UploadResponse {
   type: 'status' | 'progress' | 'complete' | 'error'
   message?: string
   progress?: number
@@ -75,9 +75,9 @@ export async function POST(request: NextRequest) {
     let extractedProductName = productName || null
     let extractedModel = model || null
     let extractedBrand = brand || null
-    let extractedCategory = category || null
+    const extractedCategory = category || null
     let aiConfidence = 0
-    let requiresManualInput = false
+    const _requiresManualInput = false
 
     try {
       // Convert files to buffers for analysis
@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
       } else {
         // Low confidence or no meaningful data extracted
         console.log(`⚠️ [UPLOAD] AI confidence too low (${aiConfidence}% < 90%) or no product detected`)
-        requiresManualInput = true
+        const _requiresManualInput = true
 
         // If no manual data was provided either, we need user input
         if (!productName && !model && !brand) {
@@ -307,7 +307,7 @@ async function runPipelinePhasesInBackground({ product, productName, model, bran
       if (enrichRes.ok) {
         // Parse streaming response line by line to extract the final enrichment result
         const reader = enrichRes.body?.getReader();
-        let decoder = new TextDecoder();
+        const decoder = new TextDecoder();
         let done = false;
         let lastResult: Record<string, any> = {};
         while (reader && !done) {
@@ -410,7 +410,7 @@ async function runPipelinePhasesInBackground({ product, productName, model, bran
       console.error('❌ [UPLOAD] Enrichment phase failed:', enrichError);
     }
     // --- Update product with AI-enriched fields and detailed specifications ---
-    let productUpdateData: any = {
+    const productUpdateData: any = {
       model: enrichedModel,
       brand: enrichedBrand,
       category: enrichedCategory

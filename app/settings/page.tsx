@@ -89,7 +89,7 @@ export default function SettingsPage() {
   // Auto-test connection on component mount
   useEffect(() => {
     testConnection();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const categoryStats = {
     total: categoryTreeUtils.flattenCategories(categories).length,

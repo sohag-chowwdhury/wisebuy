@@ -81,7 +81,7 @@ interface ProductDetail {
 }
 
 // Function to fetch market research data from API
-const fetchMarketResearchData = async (productId: string) => {
+const _fetchMarketResearchData = async (productId: string) => {
   try {
     console.log('Fetching market research data for product:', productId);
     
@@ -120,6 +120,9 @@ const initialMarketResearchData: MarketResearchData = {
     brand: "Unknown",
     category: "General",
     year: "Unknown",
+    height: "Unknown",
+    width: "Unknown",
+    length: "Unknown",
     weight: "Unknown",
     dimensions: "Unknown",
   },
@@ -206,7 +209,7 @@ export default function ProcessingPipeline() {
     if (productId) {
       fetchMergedProductData(productId);
     }
-  }, [productId]);
+  }, [productId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Refetch merged data when real-time product updates (for market research data)
   useEffect(() => {
@@ -215,7 +218,7 @@ export default function ProcessingPipeline() {
       console.log('🔄 [PIPELINE] Product updated, refetching merged data...');
       fetchMergedProductData(productId);
     }
-  }, [realtimeProduct?.updated_at, realtimeProduct?.current_phase, productId]);
+  }, [realtimeProduct?.updated_at, realtimeProduct?.current_phase, productId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Function to fetch merged data from the API
   const fetchMergedProductData = async (productId: string) => {
@@ -279,6 +282,9 @@ export default function ProcessingPipeline() {
         brand: data.productInfo.brand || data.marketResearch?.brand || "Unknown",
         category: data.productInfo.category || data.marketResearch?.category || "General", 
         year: data.productInfo.yearReleased || data.marketResearch?.year || "Unknown",
+        height: data.marketResearch?.height || data.productInfo.height || "Unknown",
+        width: data.marketResearch?.width || data.productInfo.width || "Unknown",
+        length: data.marketResearch?.length || data.productInfo.length || "Unknown",
         weight: data.marketResearch?.weight || "Unknown",
         dimensions: data.marketResearch?.dimensions || 
                    (data.productInfo.dimensions ? JSON.stringify(data.productInfo.dimensions) : "Unknown"),
@@ -395,7 +401,7 @@ export default function ProcessingPipeline() {
         conditionDetails: "Product analyzed and in good condition",
       });
     }
-  }, [realtimeProduct, realtimePhases]);
+  }, [realtimeProduct, realtimePhases]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Navigation handlers
   const handleStepClick = (stepId: number) => {

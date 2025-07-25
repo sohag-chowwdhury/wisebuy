@@ -20,7 +20,7 @@ export default function WooCommercePreviewPage() {
 
   // Helper function to parse dimensions from JSON string
   const parseDimensions = (dimensionsData: any) => {
-    let parsedDimensions = {
+    const parsedDimensions = {
       width: 0,
       height: 0,
       length: 0,
@@ -221,7 +221,7 @@ export default function WooCommercePreviewPage() {
     }
 
     fetchData();
-  }, [productId]);
+  }, [productId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleBack = () => {
     router.back();

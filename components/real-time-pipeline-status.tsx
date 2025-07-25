@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Activity,
-  Clock,
+  // Clock import removed as it's not used
   CheckCircle,
   AlertCircle,
   Eye,
@@ -65,7 +65,7 @@ export function RealTimePipelineStatus() {
   const { products, loading, error } = useProducts();
   const [processingProducts, setProcessingProducts] = useState<ProcessingProduct[]>([]);
   const [lastUpdateTime, setLastUpdateTime] = useState<string>("");
-  const [refreshKey, setRefreshKey] = useState(0);
+  const [_refreshKey, _setRefreshKey] = useState(0);
 
   // Manual pipeline control functions
   const advanceProduct = async (productId: string, action: string, phase?: number) => {

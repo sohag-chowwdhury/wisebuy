@@ -71,7 +71,7 @@ export class MarketplaceSearchService {
   /**
    * Search Amazon using real-time web search or Amazon API
    */
-  private async searchAmazon(query: string, condition: string, maxResults: number): Promise<SearchResult | null> {
+  private async searchAmazon(query: string, condition: string, _maxResults: number): Promise<SearchResult | null> {
     try {
       // Method 1: Amazon Product Advertising API (requires approval)
       if (this.config.amazonApiKey) {
@@ -219,20 +219,20 @@ export class MarketplaceSearchService {
   }
 
   // Placeholder methods for other search strategies
-  private async searchAmazonPA(query: string, condition: string): Promise<SearchResult | null> {
+  private async searchAmazonPA(_query: string, _condition: string): Promise<SearchResult | null> {
     // Amazon Product Advertising API integration
     // Requires Amazon Associates account and approval
 
     return null;
   }
 
-  private async searchAmazonViaSerpAPI(query: string, condition: string): Promise<SearchResult | null> {
+  private async searchAmazonViaSerpAPI(_query: string, _condition: string): Promise<SearchResult | null> {
     // Use SerpAPI to search Amazon directly
 
     return null;
   }
 
-  private async searchAmazonViaRapidAPI(query: string, condition: string): Promise<SearchResult | null> {
+  private async searchAmazonViaRapidAPI(_query: string, _condition: string): Promise<SearchResult | null> {
     // Use RapidAPI marketplace endpoints for Amazon
 
     return null;

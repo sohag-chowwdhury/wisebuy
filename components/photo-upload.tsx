@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useDropzone } from "react-dropzone";
-import Image from "next/image";
+// Image import removed as it's not used
 import { Upload, X, Trash2, Camera, CameraOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,7 +39,7 @@ export function PhotoUpload() {
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     addFilesToCollection(acceptedFiles);
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const addFilesToCollection = useCallback((newFiles: File[]) => {
     const maxFileSize = 10 * 1024 * 1024; // 10MB

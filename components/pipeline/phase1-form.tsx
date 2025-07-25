@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -228,10 +229,11 @@ export function Phase1Form({
                   key={image.id || index}
                   className="relative aspect-square bg-muted rounded-lg overflow-hidden"
                 >
-                  <img
+                  <Image
                     src={image.imageUrl}
                     alt={image.fileName || `Product image ${index + 1}`}
-                    className="w-full h-full object-cover"
+                    fill
+                    className="object-cover"
                     onError={(e) => {
                       e.currentTarget.style.display = 'none';
                       e.currentTarget.parentElement!.innerHTML = 

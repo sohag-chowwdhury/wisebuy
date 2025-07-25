@@ -79,6 +79,7 @@ export const createProductInsert = (params: {
   status?: ProductStatus;
   currentPhase?: number;
   aiConfidence?: number | null;
+  woocommerceCategoryId?: number | null;
 }): ProductInsert => {
   return {
     user_id: params.userId,
@@ -112,6 +113,7 @@ export const createProductInsert = (params: {
     documentation_data: {},
     visual_content_needs: {},
     analysis_metadata: {},
+    woocommerce_category_id: params.woocommerceCategoryId || null,
   };
 };
 

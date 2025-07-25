@@ -2,6 +2,7 @@
 "use client";
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { Package } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -60,10 +61,12 @@ export function ImageWithLoader({
 
       {/* Image */}
       {!error && (
-        <img
+        <Image
           src={src}
           alt={alt}
+          fill
           className={cn(
+            "object-cover",
             className,
             loading ? "opacity-0" : "opacity-100 transition-opacity duration-300"
           )}

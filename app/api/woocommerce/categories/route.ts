@@ -140,7 +140,7 @@ function buildCategoryTree(categories: WooCommerceCategory[]): CategoryTreeNode[
   return rootCategories;
 }
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     console.log("🏷️ [CATEGORIES] Fetching WooCommerce categories...");
     
@@ -158,11 +158,12 @@ export async function GET(request: NextRequest) {
     console.error("Categories API error:", error);
     
     if (error instanceof APIError) {
-      return createAPIResponse({ error: error.message }, error.statusCode);
+      return createAPIResponse({ error: error.message }, undefined, error.status);
     }
     
     return createAPIResponse(
       { error: "Failed to fetch categories" },
+      undefined,
       500
     );
   }

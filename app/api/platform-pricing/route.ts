@@ -1,4 +1,4 @@
-import { geminiService, claudeService } from "@/lib/ai-services";
+// AI services imports removed as they're not currently used
 import {
   createAPIResponse,
   validateRequiredFields,
@@ -131,9 +131,9 @@ async function findPlatformPricing(request: PlatformPricingRequest): Promise<Pla
   }
 }
 
-function findMostReliablePlatform(platformData: any): string {
+function _findMostReliablePlatform(platformData: any): string {
   const platforms = Object.entries(platformData)
-    .filter(([key, value]: [string, any]) => value && value.confidence > 0)
+    .filter(([_key, value]: [string, any]) => value && value.confidence > 0)
     .sort(([, a]: [string, any], [, b]: [string, any]) => {
       // Sort by confidence * seller_rating (if available)
       const scoreA = a.confidence * (a.seller_rating || 4.0);
@@ -284,7 +284,7 @@ async function extractProductInfoWithAI(searchResults: any[], originalQuery: str
     console.log(`🤖 [AI-EXTRACT] Using AI to extract product info from ${searchResults.length} results`);
     
     // Create prompt for AI to extract product info
-    const extractionPrompt = `
+    const _extractionPrompt = `
 Analyze these search results for "${originalQuery}" on ${platform}.com and extract authentic product information:
 
 Search Results:

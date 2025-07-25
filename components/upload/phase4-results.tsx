@@ -17,19 +17,18 @@ import { Progress } from "@/components/ui/progress";
 import { 
   CheckCircle, 
   Globe, 
-  Sparkles, 
+  // Sparkles import removed as it's not used 
   DollarSign, 
   Upload, 
   Eye,
   TrendingUp,
   Search,
   Package,
-  Calendar,
+  // Calendar import removed as it's not used
   Ruler,
   Tag,
   Star,
-  BarChart3,
-  Target,
+  // BarChart3 and Target imports removed as they're not used
   ExternalLink,
   Info,
   Loader2
@@ -244,7 +243,7 @@ export function Phase4Results({
     fetchAllData();
   }, [actualProductId]);
 
-  const itemConditionLabel =
+  const _itemConditionLabel =
     ITEM_CONDITIONS.find(
       (condition) => condition.value === (analysisData?.item_condition || productListingData.conditionInspection?.itemCondition)
     )?.label || "Not specified";

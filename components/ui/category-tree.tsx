@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
+import Image from 'next/image';
 import { ChevronDown, ChevronRight, Folder, FolderOpen, Tag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -103,10 +104,12 @@ function CategoryNode({
 
         {/* Category image (if available) */}
         {category.image && (
-          <img
+          <Image
             src={category.image.src}
             alt={category.image.alt}
-            className="h-6 w-6 rounded object-cover"
+            width={24}
+            height={24}
+            className="rounded object-cover"
           />
         )}
 
@@ -150,7 +153,6 @@ export default function CategoryTree({
   categories,
   onCategorySelect,
   selectedCategoryIds = [],
-  expandedByDefault = false,
   showProductCount = true,
   className
 }: CategoryTreeProps) {

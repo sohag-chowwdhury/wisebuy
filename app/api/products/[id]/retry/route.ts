@@ -36,7 +36,7 @@ export async function POST(
       .eq('id', productId)
 
     // Start the retry phase
-    const { data: phaseId, error: phaseError } = await supabase
+    const { data: _phaseId, error: phaseError } = await supabase
       .rpc('start_phase', {
         p_product_id: productId,
         p_phase_number: retryPhase

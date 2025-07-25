@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
+// Progress import removed as it's not used
 import { Switch } from "@/components/ui/switch";
 import { WooCommerceCategorySelect } from "@/components/ui/woocommerce-category-select";
 import {
@@ -515,10 +516,11 @@ export function Phase4Form({
                 className="relative aspect-square bg-muted rounded-lg overflow-hidden"
               >
                 {/* ImageWithLoader component would go here if it were imported */}
-                <img
+                <Image
                   src={image.imageUrl}
                   alt={image.fileName || `Product image ${index + 1}`}
-                  className="w-full h-full object-cover rounded-lg"
+                  fill
+                  className="object-cover rounded-lg"
                 />
                 {image.isPrimary && (
                   <div className="absolute top-1 left-1 bg-primary text-primary-foreground text-xs px-1 rounded">

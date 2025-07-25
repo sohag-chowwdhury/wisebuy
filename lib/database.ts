@@ -5,10 +5,10 @@
 
 // Import your existing services
 import { claudeService, geminiService, calculatePricingSuggestion } from '@/lib/ai-services';
-import { API_ENDPOINTS } from '@/lib/constants';
+// API_ENDPOINTS import removed as it's not used
 import { supabase as supabaseAdmin } from '@/lib/supabase/admin';
 import { logPipelineEvent } from '@/lib/supabase/realtime-database';
-import type { PricingRequest, CompetitiveData } from '@/lib/types';
+import type { PricingRequest } from '@/lib/types';
 
 // =====================================================
 // PHASE 1: PRODUCT ANALYSIS (Using your existing AI services)
@@ -385,7 +385,7 @@ export async function executePhase4MonitoringSetup(productId: string): Promise<v
       });
       
       if (researchResponse.ok) {
-        const researchResult = await researchResponse.json();
+        const _researchResult = await researchResponse.json();
 
       } else {
         console.warn(`⚠️ [DATABASE] Market research failed:`, await researchResponse.text());
@@ -545,7 +545,7 @@ function calculateCompleteness(images: any[]): number {
 /**
  * Calculate profit margin
  */
-function calculateProfitMargin(retailPrice: number, marketPrice: number): number {
+function _calculateProfitMargin(retailPrice: number, marketPrice: number): number {
   if (!retailPrice || !marketPrice) return 0;
   return ((marketPrice - retailPrice) / retailPrice) * 100;
 }

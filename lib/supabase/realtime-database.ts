@@ -193,7 +193,7 @@ export async function saveProductImages(
       const buffer = await file.arrayBuffer()
       
       // Upload to Supabase Storage
-      const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
+      const { data: _uploadData, error: uploadError } = await supabaseAdmin.storage
         .from('product-images')
         .upload(fileName, buffer, {
           contentType: file.type,
@@ -709,7 +709,7 @@ export async function createProductWithPipeline(params: CreateProductParams): Pr
       try {
         // Convert File to buffer for storage
         const buffer = await file.arrayBuffer();
-        const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
+        const { data: _uploadData, error: uploadError } = await supabaseAdmin.storage
           .from('product-images')
           .upload(fileName, buffer, {
             contentType: file.type,
@@ -1330,7 +1330,7 @@ export async function getDatabaseHealthRT(): Promise<{
 }> {
   try {
     // Check connection with a simple query
-    const { data: connectionTest, error: connectionError } = await supabase
+    const { data: _connectionTest, error: connectionError } = await supabase
       .from('products')
       .select('id')
       .limit(1)

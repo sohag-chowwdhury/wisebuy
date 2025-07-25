@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Start Phase 1 processing
-    const { data: phaseId, error: phaseError } = await supabase
+    const { data: _phaseId, error: phaseError } = await supabase
       .rpc('start_phase', {
         p_product_id: product.id,
         p_phase_number: 1

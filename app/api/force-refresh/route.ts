@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/admin'
-import { completePipelinePhaseRT, updateProductStatus } from '@/lib/supabase/realtime-database'
+import { completePipelinePhaseRT } from '@/lib/supabase/realtime-database'
 
 export async function POST(_request: NextRequest) {
   try {

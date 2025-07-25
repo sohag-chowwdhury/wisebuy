@@ -8,7 +8,7 @@ import { Input } from './ui/input'
 import { Label } from './ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
 import { 
-  ShoppingCart, 
+  // ShoppingCart import removed as it's not used 
   Search, 
   DollarSign, 
   Package, 

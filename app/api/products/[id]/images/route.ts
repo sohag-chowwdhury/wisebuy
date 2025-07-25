@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+// createClient import removed as it's not used
 import { supabase as supabaseAdmin } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -25,7 +25,7 @@ export async function POST(
     console.log('🔗 [PRODUCT-IMAGES] Using Supabase admin client')
 
     // Use the correct user ID where products are stored
-    let userId: string = '66c9ebb5-0eed-429a-acde-a0ecb85a8eb1' // Your actual user ID
+    const userId: string = '66c9ebb5-0eed-429a-acde-a0ecb85a8eb1' // Your actual user ID
 
     console.log('🔍 [PRODUCT-IMAGES] Looking for product:', resolvedParams.id, 'with user_id:', userId)
 
@@ -117,7 +117,7 @@ export async function POST(
         const fileBuffer = await file.arrayBuffer()
 
         // Upload to Supabase storage
-        const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
+        const { data: _uploadData, error: uploadError } = await supabaseAdmin.storage
           .from('product-images')
           .upload(fileName, fileBuffer, {
             contentType: file.type,

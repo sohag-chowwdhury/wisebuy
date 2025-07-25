@@ -63,7 +63,7 @@ export async function getCurrentUser() {
   try {
     // Server-side (works in API routes)
     return await getUserId();
-  } catch (error) {
+  } catch {
     throw new AuthError("Authentication failed");
   }
 }
