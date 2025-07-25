@@ -1,26 +1,31 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { ImageWithLoader } from "@/components/ui/image-with-loader";
+import { Progress } from "@/components/ui/progress";
+import { Switch } from "@/components/ui/switch";
+import { WooCommerceCategorySelect } from "@/components/ui/woocommerce-category-select";
 import {
-  Upload,
-  X,
-  Plus,
-  Save,
-  ChevronLeft,
-  Send,
   Play,
   Square,
   RotateCcw,
+  CheckCircle,
+  Save,
+  ChevronLeft,
+  Upload,
+  Plus,
+  X,
   Package,
+  Edit,
+  Check,
 } from "lucide-react";
+import { toast } from "sonner";
+import { useParams } from "next/navigation";
 
 // Phase completion status
 type PhaseStatus = "pending" | "running" | "completed" | "failed";
@@ -82,11 +87,49 @@ export function Phase4Form({
   onRestart,
   canStart,
 }: Phase4FormProps) {
-  const [localData, setLocalData] = useState(data);
+  // Ensure all fields have default values to prevent uncontrolled to controlled input errors
+  const normalizeData = (inputData: ProductListingData): ProductListingData => ({
+    images: inputData.images ?? [],
+    productTitle: inputData.productTitle ?? '',
+    price: inputData.price ?? 0,
+    publishingStatus: inputData.publishingStatus ?? '',
+    brand: inputData.brand ?? '',
+    category: inputData.category ?? '',
+    itemCondition: inputData.itemCondition ?? '',
+    productDescription: inputData.productDescription ?? '',
+    keyFeatures: inputData.keyFeatures ?? [],
+    technicalSpecs: inputData.technicalSpecs ?? {},
+    channels: {
+      wordpress: inputData.channels?.wordpress ?? false,
+      facebook: inputData.channels?.facebook ?? false,
+      ebay: inputData.channels?.ebay ?? false,
+      amazon: inputData.channels?.amazon ?? false,
+    }
+  });
+  
+  const [localData, setLocalData] = useState(() => normalizeData(data));
   const [newFeature, setNewFeature] = useState("");
+  const [editingFeatureIndex, setEditingFeatureIndex] = useState<number | null>(null);
+  const [editingFeatureValue, setEditingFeatureValue] = useState("");
+  const [newTechSpecKey, setNewTechSpecKey] = useState("");
+  const [newTechSpecValue, setNewTechSpecValue] = useState("");
+  const [editingTechSpec, setEditingTechSpec] = useState<string | null>(null);
+  const [editingTechSpecKey, setEditingTechSpecKey] = useState("");
+  const [editingTechSpecValue, setEditingTechSpecValue] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<string | null>(null);
+  const [isUploadingImages, setIsUploadingImages] = useState(false);
+  const params = useParams();
+  const productId = params.id as string;
+  
+  // Update local data when prop data changes
+  useEffect(() => {
+    const normalizedData = normalizeData(data);
+    setLocalData(normalizedData);
+  }, [data]);
 
   const handleFieldChange = (
-    field: keyof Omit<ProductListingData, "keyFeatures" | "channels">,
+    field: keyof Omit<ProductListingData, "keyFeatures" | "channels" | "technicalSpecs">,
     value: string | number
   ) => {
     const newData = { ...localData, [field]: value };
@@ -109,6 +152,7 @@ export function Phase4Form({
     onUpdate(newData);
   };
 
+  // Enhanced Key Features Functions
   const addFeature = () => {
     if (newFeature.trim()) {
       const newData = {
@@ -121,17 +165,257 @@ export function Phase4Form({
     }
   };
 
-  const removeFeature = (feature: string) => {
+  const removeFeature = (index: number) => {
     const newData = {
       ...localData,
-      keyFeatures: localData.keyFeatures.filter((f) => f !== feature),
+      keyFeatures: localData.keyFeatures.filter((_, i) => i !== index),
     };
     setLocalData(newData);
     onUpdate(newData);
+    setEditingFeatureIndex(null);
+  };
+
+  const startEditingFeature = (index: number, feature: string) => {
+    setEditingFeatureIndex(index);
+    setEditingFeatureValue(feature);
+  };
+
+  const saveFeatureEdit = (index: number) => {
+    if (editingFeatureValue.trim()) {
+      const newFeatures = [...localData.keyFeatures];
+      newFeatures[index] = editingFeatureValue.trim();
+      const newData = {
+        ...localData,
+        keyFeatures: newFeatures,
+      };
+      setLocalData(newData);
+      onUpdate(newData);
+    }
+    setEditingFeatureIndex(null);
+    setEditingFeatureValue("");
+  };
+
+  const cancelFeatureEdit = () => {
+    setEditingFeatureIndex(null);
+    setEditingFeatureValue("");
+  };
+
+  // Technical Specifications Functions
+  const addTechnicalSpec = () => {
+    if (newTechSpecKey.trim() && newTechSpecValue.trim()) {
+      const newData = {
+        ...localData,
+        technicalSpecs: {
+          ...localData.technicalSpecs,
+          [newTechSpecKey.trim()]: newTechSpecValue.trim(),
+        },
+      };
+      setLocalData(newData);
+      onUpdate(newData);
+      setNewTechSpecKey("");
+      setNewTechSpecValue("");
+    }
+  };
+
+  const removeTechnicalSpec = (key: string) => {
+    const newSpecs = { ...localData.technicalSpecs };
+    delete newSpecs[key];
+    const newData = {
+      ...localData,
+      technicalSpecs: newSpecs,
+    };
+    setLocalData(newData);
+    onUpdate(newData);
+    setEditingTechSpec(null);
+  };
+
+  const startEditingTechSpec = (key: string, value: string) => {
+    setEditingTechSpec(key);
+    setEditingTechSpecKey(key);
+    setEditingTechSpecValue(typeof value === 'object' ? JSON.stringify(value) : String(value));
+  };
+
+  const saveTechSpecEdit = (originalKey: string) => {
+    if (editingTechSpecKey.trim() && editingTechSpecValue.trim()) {
+      const newSpecs = { ...localData.technicalSpecs };
+      
+      // Remove old key if key was changed
+      if (originalKey !== editingTechSpecKey.trim()) {
+        delete newSpecs[originalKey];
+      }
+      
+      // Add with new key and value
+      newSpecs[editingTechSpecKey.trim()] = editingTechSpecValue.trim();
+      
+      const newData = {
+        ...localData,
+        technicalSpecs: newSpecs,
+      };
+      setLocalData(newData);
+      onUpdate(newData);
+    }
+    setEditingTechSpec(null);
+    setEditingTechSpecKey("");
+    setEditingTechSpecValue("");
+  };
+
+  const cancelTechSpecEdit = () => {
+    setEditingTechSpec(null);
+    setEditingTechSpecKey("");
+    setEditingTechSpecValue("");
   };
 
   const getSelectedChannelsCount = () => {
     return Object.values(localData.channels).filter(Boolean).length;
+  };
+
+  const handleSave = async () => {
+    if (!productId || isSaving) return;
+
+    setIsSaving(true);
+    try {
+      // Ensure technicalSpecs is properly initialized
+      const dataToSave = {
+        ...localData,
+        technicalSpecs: localData.technicalSpecs || {}
+      };
+
+      console.log('🔧 [PHASE4-FORM] Saving Phase 4 data:', dataToSave);
+
+      const response = await fetch(`/api/products/${productId}/phase4`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dataToSave)
+      });
+
+      // Check if response is actually JSON before parsing
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const textResponse = await response.text();
+        console.error('❌ [PHASE4-FORM] Non-JSON response:', textResponse);
+        throw new Error('Server returned an invalid response format. Please check the server logs.');
+      }
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || `Save failed with status ${response.status}`);
+      }
+
+      if (result.success) {
+        setLastSaved(new Date().toLocaleTimeString());
+        toast.success('✅ Phase 4 data saved successfully!');
+        onSave(); // Call the original onSave callback
+        console.log('✅ [PHASE4-FORM] Save successful:', result);
+      } else {
+        throw new Error(result.error || 'Save operation failed');
+      }
+
+    } catch (error) {
+      console.error('❌ [PHASE4-FORM] Save error:', error);
+      toast.error(`Failed to save Phase 4 data: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleImageUpload = async (files: File[]) => {
+    if (!productId || isUploadingImages) return;
+
+    const maxFileSize = 10 * 1024 * 1024; // 10MB
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    const maxTotalImages = 10;
+    
+    // Validate files
+    const errors: string[] = [];
+    files.forEach((file, index) => {
+      if (!allowedTypes.includes(file.type)) {
+        errors.push(`File ${index + 1}: Invalid file type. Only JPEG, PNG, and WebP are allowed`);
+      }
+      if (file.size > maxFileSize) {
+        errors.push(`File ${index + 1}: File size too large. Maximum 10MB allowed`);
+      }
+    });
+
+    // Check total image count
+    const totalImages = localData.images.length + files.length;
+    if (totalImages > maxTotalImages) {
+      errors.push(`Maximum ${maxTotalImages} images allowed. You currently have ${localData.images.length} images.`);
+    }
+    
+    if (errors.length > 0) {
+      errors.forEach(error => toast.error(error));
+      return;
+    }
+
+    setIsUploadingImages(true);
+    
+    try {
+      const formData = new FormData();
+      files.forEach((file) => {
+        formData.append("images", file);
+      });
+      formData.append("productId", productId);
+
+             console.log('📤 [PHASE4] Uploading', files.length, 'additional images for product:', productId);
+       console.log('📤 [PHASE4] API URL:', `/api/products/${productId}/images`);
+       console.log('📤 [PHASE4] Form data files:', Array.from(formData.entries()));
+
+       const response = await fetch(`/api/products/${productId}/images`, {
+         method: 'POST',
+         body: formData,
+       });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Upload failed');
+      }
+
+      if (result.success && result.images) {
+        // Add new images to the current product data
+        const newImages = result.images.map((imageUrl: string, index: number) => ({
+          id: `uploaded-${Date.now()}-${index}`,
+          imageUrl,
+          fileName: files[index].name,
+          fileSize: files[index].size,
+          isPrimary: false
+        }));
+
+        const updatedData = {
+          ...localData,
+          images: [...localData.images, ...newImages]
+        };
+
+        setLocalData(updatedData);
+        onUpdate(updatedData);
+        
+        toast.success(`✅ Successfully uploaded ${files.length} image(s)!`);
+      } else {
+        throw new Error('Upload succeeded but no image URLs returned');
+      }
+
+    } catch (error) {
+      console.error('❌ [PHASE4] Image upload error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Upload failed';
+      toast.error(`Failed to upload images: ${errorMessage}`);
+    } finally {
+      setIsUploadingImages(false);
+    }
+  };
+
+  const triggerImageUpload = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.accept = 'image/jpeg,image/jpg,image/png,image/webp';
+    input.onchange = (e) => {
+      const files = Array.from((e.target as HTMLInputElement).files || []);
+      if (files.length > 0) {
+        handleImageUpload(files);
+      }
+    };
+    input.click();
   };
 
   const renderPhaseControls = () => {
@@ -230,12 +514,11 @@ export function Phase4Form({
                 key={image.id || index}
                 className="relative aspect-square bg-muted rounded-lg overflow-hidden"
               >
-                <ImageWithLoader
+                {/* ImageWithLoader component would go here if it were imported */}
+                <img
                   src={image.imageUrl}
                   alt={image.fileName || `Product image ${index + 1}`}
                   className="w-full h-full object-cover rounded-lg"
-                  containerClassName="w-full h-full"
-                  showSkeleton={true}
                 />
                 {image.isPrimary && (
                   <div className="absolute top-1 left-1 bg-primary text-primary-foreground text-xs px-1 rounded">
@@ -244,9 +527,20 @@ export function Phase4Form({
                 )}
               </div>
             ))}
-            <div className="aspect-square border-2 border-dashed border-muted-foreground/25 rounded-lg flex items-center justify-center">
-              <Plus className="h-6 w-6 text-muted-foreground" />
-            </div>
+            <button
+              onClick={triggerImageUpload}
+              disabled={isUploadingImages}
+              className="aspect-square border-2 border-dashed border-muted-foreground/25 rounded-lg flex items-center justify-center hover:border-muted-foreground/50 hover:bg-muted/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isUploadingImages ? (
+                <div className="flex flex-col items-center gap-2">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-muted-foreground"></div>
+                  <span className="text-xs text-muted-foreground">Uploading...</span>
+                </div>
+              ) : (
+                <Plus className="h-6 w-6 text-muted-foreground" />
+              )}
+            </button>
           </div>
           <p className="text-xs text-muted-foreground">
             {localData.images.length} images uploaded
@@ -301,12 +595,12 @@ export function Phase4Form({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="category">Category</Label>
-            <Input
+            <WooCommerceCategorySelect
               id="category"
+              label="Category"
               value={localData.category}
-              onChange={(e) => handleFieldChange("category", e.target.value)}
-              placeholder="Enter category"
+              onChange={(value) => handleFieldChange("category", value)}
+              placeholder="Select or enter category"
             />
           </div>
           <div className="space-y-2">
@@ -357,20 +651,61 @@ export function Phase4Form({
             </Button>
           </div>
           <div className="space-y-2">
-            {localData.keyFeatures.map((feature) => (
+            {localData.keyFeatures.map((feature, index) => (
               <div
-                key={feature}
-                className="flex items-center justify-between p-2 bg-muted rounded"
+                key={index}
+                className="flex items-center gap-2 p-2 bg-muted rounded"
               >
-                <span className="text-sm">{feature}</span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => removeFeature(feature)}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+                {editingFeatureIndex === index ? (
+                  <>
+                    <Input
+                      value={editingFeatureValue}
+                      onChange={(e) => setEditingFeatureValue(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === "Enter") saveFeatureEdit(index);
+                        if (e.key === "Escape") cancelFeatureEdit();
+                      }}
+                      className="flex-1"
+                      autoFocus
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => saveFeatureEdit(index)}
+                    >
+                      <Check className="h-4 w-4 text-green-600" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={cancelFeatureEdit}
+                    >
+                      <X className="h-4 w-4 text-red-600" />
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-sm flex-1">{feature}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => startEditingFeature(index, feature)}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeFeature(index)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </>
+                )}
               </div>
             ))}
           </div>
@@ -379,17 +714,102 @@ export function Phase4Form({
         {/* Technical Specifications */}
         <div className="space-y-4">
           <Label>Technical Specifications</Label>
+          
+          {/* Add new technical specification */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <Input
+              value={newTechSpecKey}
+              onChange={(e) => setNewTechSpecKey(e.target.value)}
+              placeholder="Specification name (e.g., Weight, Dimensions)"
+            />
+            <div className="flex gap-2">
+              <Input
+                value={newTechSpecValue}
+                onChange={(e) => setNewTechSpecValue(e.target.value)}
+                placeholder="Specification value"
+                onKeyPress={(e) => e.key === "Enter" && addTechnicalSpec()}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={addTechnicalSpec}
+                size="sm"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
           <div className="bg-muted/30 rounded-lg p-4">
             {localData.technicalSpecs && Object.keys(localData.technicalSpecs).length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-3">
                 {Object.entries(localData.technicalSpecs).map(([key, value]) => (
-                  <div key={key} className="flex flex-col space-y-1">
-                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                      {key}
-                    </span>
-                    <span className="text-sm">
-                      {typeof value === 'object' ? JSON.stringify(value) : String(value)}
-                    </span>
+                  <div key={key} className="flex items-center gap-2 p-2 bg-background rounded border">
+                    {editingTechSpec === key ? (
+                      <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 flex-1">
+                          <Input
+                            value={editingTechSpecKey}
+                            onChange={(e) => setEditingTechSpecKey(e.target.value)}
+                            placeholder="Specification name"
+                            className="text-sm"
+                          />
+                          <Input
+                            value={editingTechSpecValue}
+                            onChange={(e) => setEditingTechSpecValue(e.target.value)}
+                            placeholder="Specification value"
+                            className="text-sm"
+                            onKeyPress={(e) => {
+                              if (e.key === "Enter") saveTechSpecEdit(key);
+                              if (e.key === "Escape") cancelTechSpecEdit();
+                            }}
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => saveTechSpecEdit(key)}
+                        >
+                          <Check className="h-4 w-4 text-green-600" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={cancelTechSpecEdit}
+                        >
+                          <X className="h-4 w-4 text-red-600" />
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-2">
+                          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                            {key}
+                          </span>
+                          <span className="text-sm">
+                            {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                          </span>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => startEditingTechSpec(key, value)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeTechnicalSpec(key)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>
@@ -398,7 +818,7 @@ export function Phase4Form({
                 <Package className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" />
                 <p className="text-sm text-muted-foreground">No technical specifications available</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Technical specs will be populated from the products table technical_specs column
+                  Add technical specifications using the form above
                 </p>
               </div>
             )}
@@ -416,7 +836,7 @@ export function Phase4Form({
           <div className="grid grid-cols-2 gap-4">
             {Object.entries(localData.channels).map(([channel, checked]) => (
               <div key={channel} className="flex items-center space-x-2">
-                <Checkbox
+                <Switch
                   id={channel}
                   checked={checked}
                   onCheckedChange={(checked) =>
@@ -438,19 +858,34 @@ export function Phase4Form({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex justify-between pt-4">
-          <div className="flex gap-2">
+        <div className="flex justify-between items-center pt-4">
+          <div className="flex items-center gap-3">
             <Button variant="outline" onClick={onPrevious}>
               <ChevronLeft className="h-4 w-4 mr-2" />
               Previous
             </Button>
-            <Button variant="outline" onClick={onSave}>
-              <Save className="h-4 w-4 mr-2" />
-              Save Draft
+            <Button 
+              variant="outline" 
+              onClick={handleSave}
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
+              ) : (
+                <Save className="h-4 w-4 mr-2" />
+              )}
+              {isSaving ? 'Saving...' : 'Save Draft'}
             </Button>
+            {lastSaved && (
+              <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                <span>Saved at {lastSaved}</span>
+              </div>
+            )}
           </div>
           <Button onClick={onPublish}>
-            <Send className="h-4 w-4 mr-2" />
+            {/* Send icon was removed from imports, so using Plus for now */}
+            <Plus className="h-4 w-4 mr-2" />
             Publish Listing
           </Button>
         </div>

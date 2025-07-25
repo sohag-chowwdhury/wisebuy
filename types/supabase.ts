@@ -8,6 +8,7 @@ export type Product = {
   brand: string | null;          // ADDED: Missing from database schema
   category: string | null;       // ADDED: Missing from database schema
   description: string | null;    // ADDED: Missing from database schema
+  woocommerce_category_id: number | null; // ADDED: WooCommerce category ID for publishing
   year_released: string | null;
   status:
     | "uploading"

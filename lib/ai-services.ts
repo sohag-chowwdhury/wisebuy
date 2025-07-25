@@ -15,6 +15,78 @@ import {
 import { APIError, parseJSONFromText, retryWithBackoff } from "./api-utils";
 import { cleanDirtyJsonStr } from "./utils";
 
+// Add WooCommerce category interface
+interface WooCommerceCategory {
+  id: number;
+  name: string;
+  slug: string;
+  parent: number;
+  description: string;
+  count: number;
+}
+
+// Add function to fetch WooCommerce categories
+async function fetchWooCommerceCategories(): Promise<WooCommerceCategory[]> {
+  const { WC_CONSUMER_KEY, WC_CONSUMER_SECRET, WP_DOMAIN } = process.env;
+
+  if (!WC_CONSUMER_KEY || !WC_CONSUMER_SECRET || !WP_DOMAIN) {
+    console.warn("🚨 [WOOCOMMERCE] Credentials not found, using fallback categories");
+    const fallbackCategories = [
+      { id: 1, name: "Uncategorized", slug: "uncategorized", parent: 0, description: "Default category", count: 0 },
+      { id: 2, name: "Electronics", slug: "electronics", parent: 0, description: "", count: 0 },
+      { id: 3, name: "Home & Garden", slug: "home-garden", parent: 0, description: "", count: 0 },
+      { id: 4, name: "Clothing", slug: "clothing", parent: 0, description: "", count: 0 },
+      { id: 5, name: "Sports & Outdoors", slug: "sports-outdoors", parent: 0, description: "", count: 0 },
+      { id: 6, name: "Books", slug: "books", parent: 0, description: "", count: 0 },
+      { id: 7, name: "Automotive", slug: "automotive", parent: 0, description: "", count: 0 },
+      { id: 8, name: "Health & Beauty", slug: "health-beauty", parent: 0, description: "", count: 0 }
+    ];
+    console.log(`🏪 [FALLBACK] Using ${fallbackCategories.length} fallback categories:`, fallbackCategories.map(cat => `${cat.name} (ID: ${cat.id})`).join(', '));
+    return fallbackCategories;
+  }
+
+  try {
+    const wcAuth = Buffer.from(`${WC_CONSUMER_KEY}:${WC_CONSUMER_SECRET}`).toString("base64");
+    
+    const response = await fetch(
+      `${WP_DOMAIN}/wp-json/wc/v3/products/categories?per_page=100&orderby=name&order=asc`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Basic ${wcAuth}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      console.warn(`🚨 [WOOCOMMERCE] API call failed with status ${response.status}, using fallback categories`);
+      const fallbackCategories = [
+        { id: 1, name: "Uncategorized", slug: "uncategorized", parent: 0, description: "Default category", count: 0 },
+        { id: 2, name: "Electronics", slug: "electronics", parent: 0, description: "", count: 0 },
+        { id: 3, name: "Home & Garden", slug: "home-garden", parent: 0, description: "", count: 0 },
+        { id: 4, name: "Clothing", slug: "clothing", parent: 0, description: "", count: 0 }
+      ];
+      console.log(`🏪 [FALLBACK] Using ${fallbackCategories.length} fallback categories after API failure`);
+      return fallbackCategories;
+    }
+
+    const categories: WooCommerceCategory[] = await response.json();
+    console.log(`🏪 [WOOCOMMERCE] Fetched ${categories.length} categories:`, categories.map(cat => `${cat.name} (ID: ${cat.id})`).join(', '));
+    return categories;
+  } catch (error) {
+    console.warn("🚨 [WOOCOMMERCE] Error fetching categories:", error);
+    const fallbackCategories = [
+      { id: 1, name: "Uncategorized", slug: "uncategorized", parent: 0, description: "Default category", count: 0 },
+      { id: 2, name: "Electronics", slug: "electronics", parent: 0, description: "", count: 0 },
+      { id: 3, name: "Home & Garden", slug: "home-garden", parent: 0, description: "", count: 0 },
+      { id: 4, name: "Clothing", slug: "clothing", parent: 0, description: "", count: 0 }
+    ];
+    console.log(`🏪 [FALLBACK] Using ${fallbackCategories.length} fallback categories after error`);
+    return fallbackCategories;
+  }
+}
+
 // Helper function to detect image format from buffer
 function detectImageMediaType(buffer: Buffer): string {
   // Check file signatures (magic numbers)
@@ -275,6 +347,9 @@ Return ONLY valid JSON without any explanatory text, comments, or markdown forma
   async analyzePackagingImages(imageBuffers: Buffer[]): Promise<ComprehensiveProductAnalysis> {
     return retryWithBackoff(async () => {
       try {
+        // Fetch WooCommerce categories for selection
+        const categories = await fetchWooCommerceCategories();
+        
         const content: ContentBlockParam[] = [];
         imageBuffers.forEach((buffer, index) => {
           const mediaType = detectImageMediaType(buffer);
@@ -298,10 +373,10 @@ Return ONLY valid JSON without any explanatory text, comments, or markdown forma
           );
         });
 
-        // Add the comprehensive analysis prompt
+        // Add the comprehensive analysis prompt with categories
         content.push({
           type: "text",
-          text: this.buildComprehensiveAnalysisPrompt(),
+          text: this.buildComprehensiveAnalysisPrompt(categories),
         });
 
         const message = await anthropic.messages.create({
@@ -318,6 +393,91 @@ Return ONLY valid JSON without any explanatory text, comments, or markdown forma
 
         const cleanedJson = cleanDirtyJsonStr(responseContent.text);
         const result = JSON.parse(cleanedJson);
+        
+        // Log category selection for debugging
+        const categoryName = result.basic_information?.category_name;
+        const categoryId = result.basic_information?.category_id;
+        console.log(`🏷️ [CLAUDE] Selected category: "${categoryName}" (ID: ${categoryId})`);
+        
+        // COMPREHENSIVE CATEGORY VALIDATION AND CORRECTION
+        console.log(`🏷️ [CLAUDE] Raw AI response - category_name: "${categoryName}", category_id: ${categoryId}`);
+        
+        // Step 1: Check if AI used exact category from our list
+        const exactMatch = categories.find(cat => 
+          cat.name === categoryName && cat.id === categoryId
+        );
+        
+        if (exactMatch) {
+          console.log(`✅ [CLAUDE] Perfect category match: "${exactMatch.name}" (ID: ${exactMatch.id})`);
+        } else {
+          console.warn(`⚠️ [CLAUDE] AI created invalid category "${categoryName}" (ID: ${categoryId}), correcting...`);
+          
+          // Step 2: Try to find category by name similarity (case-insensitive)
+          let correctedCategory = categories.find(cat => 
+            cat.name.toLowerCase() === categoryName?.toLowerCase()
+          );
+          
+          // Step 3: Smart category mapping for common mistakes
+          if (!correctedCategory && categoryName) {
+            const categoryLower = categoryName.toLowerCase();
+            
+            // Coffee makers, kitchen appliances → Home & Kitchen
+            if (categoryLower.includes('coffee') || categoryLower.includes('kitchen') || 
+                categoryLower.includes('appliance') || categoryLower.includes('blender') ||
+                categoryLower.includes('toaster') || categoryLower.includes('microwave')) {
+              correctedCategory = categories.find(cat => 
+                cat.name.toLowerCase().includes('home') && cat.name.toLowerCase().includes('kitchen') ||
+                cat.name.toLowerCase().includes('home & kitchen') ||
+                cat.name.toLowerCase().includes('kitchen')
+              );
+              console.log(`🔧 [CLAUDE] Detected kitchen appliance, mapping to Home & Kitchen category`);
+            }
+            
+            // Electronics mapping
+            else if (categoryLower.includes('electronic') || categoryLower.includes('phone') ||
+                     categoryLower.includes('computer') || categoryLower.includes('device')) {
+              correctedCategory = categories.find(cat => cat.name.toLowerCase().includes('electronics'));
+              console.log(`🔧 [CLAUDE] Detected electronics, mapping to Electronics category`);
+            }
+            
+            // Books/Media mapping
+            else if (categoryLower.includes('book') || categoryLower.includes('media')) {
+              correctedCategory = categories.find(cat => cat.name.toLowerCase().includes('book'));
+            }
+            
+            // Clothing mapping
+            else if (categoryLower.includes('clothing') || categoryLower.includes('apparel') ||
+                     categoryLower.includes('fashion') || categoryLower.includes('wear')) {
+              correctedCategory = categories.find(cat => cat.name.toLowerCase().includes('clothing'));
+            }
+          }
+          
+          // Step 4: Final fallback to safe categories
+          if (!correctedCategory) {
+            const electronicsCategory = categories.find(cat => cat.name.toLowerCase().includes('electronics'));
+            const uncategorizedCategory = categories.find(cat => cat.name.toLowerCase().includes('uncategorized'));
+            correctedCategory = electronicsCategory || uncategorizedCategory || categories[0];
+            console.log(`🔧 [CLAUDE] Using final fallback category: "${correctedCategory.name}"`);
+          }
+          
+          // Apply the correction
+          if (correctedCategory) {
+            result.basic_information.category_name = correctedCategory.name;
+            result.basic_information.category_id = correctedCategory.id;
+            console.log(`🔧 [CLAUDE] Corrected to: "${correctedCategory.name}" (ID: ${correctedCategory.id})`);
+          }
+        }
+        
+        // Step 5: Final validation - ensure we have valid data
+        if (!result.basic_information.category_id || !result.basic_information.category_name) {
+          const emergencyCategory = categories[0];
+          result.basic_information.category_name = emergencyCategory.name;
+          result.basic_information.category_id = emergencyCategory.id;
+          console.error(`🚨 [CLAUDE] Emergency fallback applied: "${emergencyCategory.name}" (ID: ${emergencyCategory.id})`);
+        }
+        
+        console.log(`✅ [CLAUDE] Final category: "${result.basic_information?.category_name}" (ID: ${result.basic_information?.category_id})`);
+        
         return result as ComprehensiveProductAnalysis;
       } catch (error) {
         console.error("💥 [CLAUDE] Comprehensive packaging analysis error:", error);
@@ -385,8 +545,66 @@ Return JSON with this exact structure:
 }`;
   }
 
-  private buildComprehensiveAnalysisPrompt(): string {
+  private buildComprehensiveAnalysisPrompt(categories: WooCommerceCategory[]): string {
+    const categoryList = categories.map(cat => `- ${cat.name} (ID: ${cat.id})`).join('\n');
+    
+    // Find fallback categories with better matching
+    const homeKitchenCategory = categories.find(cat => 
+      cat.name.toLowerCase().includes('home') && cat.name.toLowerCase().includes('kitchen') ||
+      cat.name.toLowerCase().includes('home & kitchen') ||
+      cat.name.toLowerCase().includes('kitchen')
+    );
+    const electronicsCategory = categories.find(cat => cat.name.toLowerCase().includes('electronics'));
+    const uncategorizedCategory = categories.find(cat => cat.name.toLowerCase().includes('uncategorized'));
+    const defaultCategory = electronicsCategory || uncategorizedCategory || categories[0];
+    
+    // Create specific product-to-category mapping examples
+    const productExamples = [];
+    if (homeKitchenCategory) {
+      productExamples.push(`- Coffee makers, blenders, toasters, kitchen appliances → "${homeKitchenCategory.name}" (ID: ${homeKitchenCategory.id})`);
+    }
+    if (electronicsCategory) {
+      productExamples.push(`- Phones, laptops, TVs, electronic devices → "${electronicsCategory.name}" (ID: ${electronicsCategory.id})`);
+    }
+    
     return `Analyze the provided product packaging images and perform comprehensive ecommerce analysis following these instructions:
+
+**🚨 ABSOLUTELY CRITICAL CATEGORY SELECTION - THIS IS MANDATORY 🚨**
+
+⚠️ WARNING: You MUST select from the EXACT categories below. DO NOT create new category names like "Coffeemaker" or "Electronics Device". Use ONLY the names provided in this list:
+
+AVAILABLE WOOCOMMERCE CATEGORIES (COPY EXACTLY):
+${categoryList}
+
+**🔒 CATEGORY SELECTION RULES - ZERO TOLERANCE FOR DEVIATION:**
+
+1. **IDENTIFY THE PRODUCT** - Look at the packaging and determine what the product is
+2. **FIND EXACT MATCH** - Locate the best matching category from the list above
+3. **COPY EXACTLY** - Use the EXACT category name and ID as shown above
+4. **NO CUSTOM NAMES** - Never invent category names like "Coffeemaker", "Phone Device", etc.
+5. **ALWAYS FILL** - Both category_name and category_id must be completed
+
+**🎯 SPECIFIC PRODUCT MAPPING EXAMPLES:**
+${productExamples.join('\n')}
+- Books, magazines, media → Find "Books" category if available
+- Clothing, apparel, fashion → Find "Clothing" category if available
+- Tools, hardware → Find "Tools" or "Hardware" category if available
+- Unknown/unclear products → "${defaultCategory.name}" (ID: ${defaultCategory.id})
+
+**✅ MANDATORY VALIDATION CHECKLIST:**
+Before submitting your response, verify:
+1. ✅ Is my category_name copied EXACTLY from the list above?
+2. ✅ Is my category_id the matching number from the list above?
+3. ✅ Did I avoid creating any custom category names?
+4. ✅ Are both fields filled with valid values?
+
+**❌ COMMON MISTAKES TO AVOID:**
+- Using "Coffeemaker" instead of "Home & Kitchen"
+- Using "Electronics Device" instead of "Electronics"
+- Creating any category name not in the provided list
+- Leaving category_id as null when category_name is filled
+
+**🆘 EMERGENCY FALLBACK**: If absolutely no category matches, use "${defaultCategory.name}" (ID: ${defaultCategory.id})
 
 **CRITICAL DIMENSION EXTRACTION INSTRUCTIONS:**
 When you find dimension text like "5.9 inches", "7.6 inches", "2.3 lbs", etc., you MUST extract the numeric value:
@@ -400,15 +618,17 @@ Parse ALL dimension strings to extract the numeric values only.
 
 Return your analysis in this EXACT JSON format:
 
-{
-  "basic_information": {
-    "brand": "",
-    "model_number": "",
-    "manufacturer": "",
-    "product_name": "",
-    "upc": "",
-    "item_number": ""
-  },
+   {
+    "basic_information": {
+      "brand": "",
+      "model_number": "",
+      "manufacturer": "",
+      "product_name": "",
+      "category_name": "${defaultCategory.name}",
+      "category_id": ${defaultCategory.id},
+      "upc": "",
+      "item_number": ""
+    },
   "specifications": {
     "height_inches": null,
     "height_cm": null,
@@ -570,13 +790,22 @@ For the competitive_pricing section, you MUST research and populate with REAL da
 2. Best estimates based on similar products
 3. Clear notes about data confidence level
 
-**MSRP RESEARCH (CRITICAL):**
-For the pricing_recommendation.msrp field, you MUST research and find:
-- Original Manufacturer Suggested Retail Price (MSRP) when the product was first released
-- Current retail price if still being sold new
-- Search manufacturer websites, official retailers, and product documentation
-- If MSRP not found, provide your best estimate based on similar products and note this in missing_information`;
-  }
+ **MSRP RESEARCH (CRITICAL):**
+ For the pricing_recommendation.msrp field, you MUST research and find:
+ - Original Manufacturer Suggested Retail Price (MSRP) when the product was first released
+ - Current retail price if still being sold new
+ - Search manufacturer websites, official retailers, and product documentation
+ - If MSRP not found, provide your best estimate based on similar products and note this in missing_information
+
+**FINAL CATEGORY VALIDATION:**
+Before submitting your response, double-check:
+1. ✅ Did you select a category_name from the provided list?
+2. ✅ Did you include the corresponding category_id number?
+3. ✅ If no good match exists, did you use "Not Existing Category - [suggestion]" format?
+4. ✅ Are both category_name and category_id fields filled correctly?
+
+**REMEMBER**: Category selection is MANDATORY. Do not leave these fields empty or the system will fail.`;
+   }
 }
 
 // Gemini Service Implementation

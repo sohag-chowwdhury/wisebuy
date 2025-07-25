@@ -12,7 +12,7 @@ export async function GET(
     console.log(`🔍 [MERGED-DATA] Fetching merged data for product: ${productId}`);
 
     // Fetch data from all tables in parallel for better performance
-    const [productResult, marketResearchResult, seoAnalysisResult, productImagesResult] = await Promise.all([
+    const [productResult, marketResearchResult, seoAnalysisResult, productImagesResult, productListingResult] = await Promise.all([
       // 1. Fetch main product data
       supabaseAdmin
         .from('products')
@@ -40,7 +40,14 @@ export async function GET(
         .select('*')
         .eq('product_id', productId)
         .order('is_primary', { ascending: false })
-        .order('created_at', { ascending: true })
+        .order('created_at', { ascending: true }),
+
+      // 5. Fetch product listing data (Phase 4)
+      supabaseAdmin
+        .from('product_listing_data')
+        .select('*')
+        .eq('product_id', productId)
+        .single()
     ]);
 
     // Check for errors in main product fetch (required)
@@ -54,16 +61,18 @@ export async function GET(
 
     const product = productResult.data;
 
-    // Market research and SEO data may not exist yet, so handle gracefully
+    // Market research, SEO, and listing data may not exist yet, so handle gracefully
     const marketResearchData = marketResearchResult.error ? null : marketResearchResult.data;
     const seoAnalysisData = seoAnalysisResult.error ? null : seoAnalysisResult.data;
     const productImages = productImagesResult.error ? [] : productImagesResult.data;
+    const productListingData = productListingResult.error ? null : productListingResult.data;
 
     // Log what data we found
     console.log(`✅ [MERGED-DATA] Product found: ${product.name}`);
     console.log(`📊 [MERGED-DATA] Market research data: ${marketResearchData ? 'Found' : 'Not found'}`);
     console.log(`🔍 [MERGED-DATA] SEO analysis data: ${seoAnalysisData ? 'Found' : 'Not found'}`);
     console.log(`📸 [MERGED-DATA] Product images: ${productImages.length} found`);
+    console.log(`📋 [MERGED-DATA] Product listing data: ${productListingData ? 'Found' : 'Not found'}`);
 
     // Create the merged data object
     const mergedData = {
@@ -226,6 +235,23 @@ export async function GET(
         readabilityScore: seoAnalysisData.readability_score,
         createdAt: seoAnalysisData.created_at,
         updatedAt: seoAnalysisData.updated_at
+      } : null,
+
+      // Product Listing Data (Phase 4)
+      productListing: productListingData ? {
+        id: productListingData.id,
+        productId: productListingData.product_id,
+        productTitle: productListingData.product_title,
+        price: productListingData.price,
+        publishingStatus: productListingData.publishing_status,
+        brand: productListingData.brand,
+        category: productListingData.category,
+        itemCondition: productListingData.item_condition,
+        productDescription: productListingData.product_description,
+        keyFeatures: productListingData.key_features,
+        channels: productListingData.channels,
+        createdAt: productListingData.created_at,
+        updatedAt: productListingData.updated_at
       } : null,
 
       // Summary Statistics

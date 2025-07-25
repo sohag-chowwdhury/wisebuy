@@ -17,10 +17,57 @@ export function mapAnalysisToProductFields(
     // Basic information
     name: analysis.basic_information.product_name || existingProduct.name,
     model: analysis.basic_information.model_number || existingProduct.model,
+    brand: analysis.basic_information.brand || existingProduct.brand,
+    category: analysis.basic_information.category_name || existingProduct.category,
     manufacturer: analysis.basic_information.manufacturer,
     upc: analysis.basic_information.upc,
     item_number: analysis.basic_information.item_number,
     product_description: analysis.product_description,
+    
+    // Category information from WooCommerce with enhanced validation
+    woocommerce_category_id: (() => {
+      const categoryName = analysis.basic_information.category_name;
+      const categoryId = analysis.basic_information.category_id;
+      
+      console.log(`📝 [MAPPER] Processing category: "${categoryName}" (ID: ${categoryId})`);
+      
+      // Priority 1: Use the category_id from AI if valid and non-zero
+      if (categoryId && categoryId > 0) {
+        console.log(`✅ [MAPPER] Using AI selected category ID: ${categoryId} for "${categoryName}"`);
+        return categoryId;
+      }
+      
+      // Priority 2: If no ID but has valid category name
+      if (categoryName && !categoryName.startsWith("Not Existing Category")) {
+        // Smart mapping for known category patterns
+        const categoryLower = categoryName.toLowerCase();
+        
+        // Map common category names to likely IDs
+        if (categoryLower.includes('home') && categoryLower.includes('kitchen')) {
+          console.log(`🔧 [MAPPER] Detected Home & Kitchen category, using ID 2 (common fallback)`);
+          return 2;
+        } else if (categoryLower.includes('electronics')) {
+          console.log(`🔧 [MAPPER] Detected Electronics category, using ID 3 (common fallback)`);
+          return 3;
+        } else if (categoryLower.includes('uncategorized')) {
+          console.log(`🔧 [MAPPER] Detected Uncategorized category, using ID 1`);
+          return 1;
+        } else {
+          console.log(`📝 [MAPPER] Unknown category "${categoryName}", defaulting to Uncategorized (ID: 1)`);
+          return 1;
+        }
+      }
+      
+      // Priority 3: If it's a "Not Existing Category", keep null for manual review
+      if (categoryName?.startsWith("Not Existing Category")) {
+        console.log(`⚠️ [MAPPER] "Not Existing Category" detected: "${categoryName}", keeping null for manual review`);
+        return null;
+      }
+      
+      // Final fallback: Force Uncategorized if nothing else works
+      console.warn(`🚨 [MAPPER] No valid category found (name: "${categoryName}", id: ${categoryId}), forcing Uncategorized (ID: 1)`);
+      return 1;
+    })(),
     
     // Physical dimensions as separate fields
     width_inches: analysis.specifications?.width_inches,

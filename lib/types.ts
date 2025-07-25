@@ -16,6 +16,8 @@ export interface BasicInformation {
   model_number: string;
   manufacturer: string;
   product_name: string;
+  category_name: string;
+  category_id: number | null;
   upc: string;
   item_number: string;
 }
@@ -534,6 +536,49 @@ export interface PublishResponse {
   productUrl?: string;
   error?: string;
   platform: string;
+}
+
+// =====================================================
+// WOOCOMMERCE CATEGORY TYPES
+// =====================================================
+
+export interface WooCommerceCategory {
+  id: number;
+  name: string;
+  slug: string;
+  parent: number;
+  description: string;
+  display: string;
+  image: {
+    id: number;
+    src: string;
+    name: string;
+    alt: string;
+  } | null;
+  menu_order: number;
+  count: number;
+}
+
+export interface CategoryTreeNode {
+  id: number;
+  name: string;
+  slug: string;
+  description: string;
+  count: number;
+  image?: {
+    id: number;
+    src: string;
+    name: string;
+    alt: string;
+  };
+  children: CategoryTreeNode[];
+  parent: number;
+}
+
+export interface CategoryApiResponse {
+  categories: CategoryTreeNode[];
+  totalCount: number;
+  rootCount: number;
 }
 
 // =====================================================
