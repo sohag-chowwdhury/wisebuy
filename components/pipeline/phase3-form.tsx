@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +18,10 @@ import {
   Square,
   RotateCcw,
   Database,
+  CheckCircle,
 } from "lucide-react";
+import { toast } from "sonner";
+import { useParams } from "next/navigation";
 
 // Phase completion status
 type PhaseStatus = "pending" | "running" | "completed" | "failed";
@@ -61,9 +64,28 @@ export function Phase3Form({
   onRestart,
   canStart,
 }: Phase3FormProps) {
-  const [localData, setLocalData] = useState(data);
+  // Ensure all fields have default values to prevent uncontrolled to controlled input errors
+  const normalizeData = (inputData: SEOAnalysisData): SEOAnalysisData => ({
+    seoTitle: inputData.seoTitle ?? '',
+    urlSlug: inputData.urlSlug ?? '',
+    metaDescription: inputData.metaDescription ?? '',
+    keywords: inputData.keywords ?? [],
+    tags: inputData.tags ?? [],
+  });
+
+  const [localData, setLocalData] = useState(() => normalizeData(data));
   const [newKeyword, setNewKeyword] = useState("");
   const [newTag, setNewTag] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<string | null>(null);
+  const params = useParams();
+  const productId = params.id as string;
+
+  // Update local data when props change
+  useEffect(() => {
+    const normalizedData = normalizeData(data);
+    setLocalData(normalizedData);
+  }, [data]);
 
   const handleFieldChange = (
     field: keyof Omit<SEOAnalysisData, "keywords" | "tags">,
@@ -124,6 +146,42 @@ export function Phase3Form({
       .replace(/-+/g, "-")
       .trim();
     handleFieldChange("urlSlug", slug);
+  };
+
+  const handleSave = async () => {
+    if (!productId || isSaving) return;
+
+    setIsSaving(true);
+    try {
+      console.log('🔧 [PHASE3-FORM] Saving Phase 3 data:', localData);
+
+      const response = await fetch(`/api/products/${productId}/phase3`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(localData)
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || `Save failed with status ${response.status}`);
+      }
+
+      if (result.success) {
+        setLastSaved(new Date().toLocaleTimeString());
+        toast.success('✅ Phase 3 data saved successfully!');
+        onSave(); // Call the original onSave callback
+        console.log('✅ [PHASE3-FORM] Save successful:', result);
+      } else {
+        throw new Error(result.error || 'Save operation failed');
+      }
+
+    } catch (error) {
+      console.error('❌ [PHASE3-FORM] Save error:', error);
+      toast.error(`Failed to save Phase 3 data: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const renderPhaseControls = () => {
@@ -343,16 +401,30 @@ export function Phase3Form({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex justify-between pt-4">
-          <div className="flex gap-2">
+        <div className="flex justify-between items-center pt-4">
+          <div className="flex items-center gap-3">
             <Button variant="outline" onClick={onPrevious}>
               <ChevronLeft className="h-4 w-4 mr-2" />
               Previous
             </Button>
-            <Button variant="outline" onClick={onSave}>
-              <Save className="h-4 w-4 mr-2" />
-              Save Progress
+            <Button 
+              variant="outline" 
+              onClick={handleSave}
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
+              ) : (
+                <Save className="h-4 w-4 mr-2" />
+              )}
+              {isSaving ? 'Saving...' : 'Save Progress'}
             </Button>
+            {lastSaved && (
+              <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                <span>Saved at {lastSaved}</span>
+              </div>
+            )}
           </div>
           <Button onClick={onNext}>
             Continue to Product Listing

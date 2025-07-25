@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,11 @@ import {
   Play,
   Square,
   RotateCcw,
+  CheckCircle,
 } from "lucide-react";
+import { WooCommerceCategorySelect } from "@/components/ui/woocommerce-category-select";
+import { toast } from "sonner";
+import { useParams } from "next/navigation";
 
 // Phase completion status
 type PhaseStatus = "pending" | "running" | "completed" | "failed";
@@ -38,9 +42,14 @@ export interface MarketResearchData {
     brand: string;
     category: string;
     year: string;
+    // Replace single weight and dimensions with individual fields
+    height: string;
+    width: string;
+    length: string;
     weight: string;
-    dimensions: string;
     technical_specs?: Record<string, any>;
+    // Keep legacy fields for backward compatibility
+    dimensions?: string;
   };
 }
 
@@ -69,7 +78,126 @@ export function Phase2Form({
   onRestart,
   canStart,
 }: Phase2FormProps) {
-  const [localData, setLocalData] = useState(data);
+  // Ensure all fields have default values to prevent uncontrolled to controlled input errors
+  const normalizeData = (inputData: MarketResearchData): MarketResearchData => ({
+    marketResearch: {
+      amazonPrice: inputData.marketResearch?.amazonPrice ?? 0,
+      amazonLink: inputData.marketResearch?.amazonLink ?? '',
+      ebayPrice: inputData.marketResearch?.ebayPrice ?? 0,
+      ebayLink: inputData.marketResearch?.ebayLink ?? '',
+      msrp: inputData.marketResearch?.msrp ?? 0,
+      competitivePrice: inputData.marketResearch?.competitivePrice ?? 0,
+    },
+    specifications: {
+      brand: inputData.specifications?.brand ?? '',
+      category: inputData.specifications?.category ?? '',
+      year: inputData.specifications?.year ?? '',
+      height: inputData.specifications?.height ?? '',
+      width: inputData.specifications?.width ?? '',
+      length: inputData.specifications?.length ?? '',
+      weight: inputData.specifications?.weight ?? '',
+      technical_specs: inputData.specifications?.technical_specs ?? {},
+      dimensions: inputData.specifications?.dimensions ?? '',
+    }
+  });
+
+  const [localData, setLocalData] = useState(() => normalizeData(data));
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<string | null>(null);
+  const params = useParams();
+  const productId = params.id as string;
+
+  // Parse dimensions JSON string to extract individual values
+  const parseDimensionsFromJSON = (dimensionsString: string) => {
+    try {
+      if (!dimensionsString || dimensionsString === 'Unknown' || dimensionsString === 'Not found') {
+        return { height: '', width: '', length: '', weight: '' };
+      }
+
+      // Try to parse as JSON
+      const parsed = JSON.parse(dimensionsString);
+      
+      // Extract numeric values from strings like "11.20 inches" or "89.60 oz"
+      const extractNumber = (value: string | number) => {
+        if (typeof value === 'number') return value.toString();
+        if (typeof value === 'string') {
+          const match = value.match(/[\d.]+/);
+          return match ? match[0] : '';
+        }
+        return '';
+      };
+
+      const result = {
+        height: extractNumber(parsed.height || ''),
+        width: extractNumber(parsed.width || ''),
+        length: extractNumber(parsed.length || ''),
+        weight: extractNumber(parsed.weight || ''),
+      };
+
+      console.log('🔍 [DIMENSION-PARSER] Parsed dimensions:', {
+        original: dimensionsString,
+        parsed: parsed,
+        result: result
+      });
+
+      return result;
+    } catch (error) {
+      console.log('❌ [DIMENSION-PARSER] Could not parse dimensions JSON:', error, dimensionsString);
+      return { height: '', width: '', length: '', weight: '' };
+    }
+  };
+
+  // Update local data when props change and handle dimension parsing
+  useEffect(() => {
+    const normalizedData = normalizeData(data);
+    
+    console.log('🔧 [PHASE2-FORM] Processing dimensions data:', {
+      hasDimensions: !!data.specifications?.dimensions,
+      dimensions: data.specifications?.dimensions,
+      currentValues: {
+        height: normalizedData.specifications.height,
+        width: normalizedData.specifications.width,
+        length: normalizedData.specifications.length,
+        weight: normalizedData.specifications.weight
+      }
+    });
+
+    if (data.specifications?.dimensions) {
+      const parsedDimensions = parseDimensionsFromJSON(data.specifications.dimensions);
+      
+      // Check if we need to update any fields (including replacing "Unknown" values)
+      const shouldUpdate = 
+        (!normalizedData.specifications.height || normalizedData.specifications.height === '') ||
+        (!normalizedData.specifications.width || normalizedData.specifications.width === '') ||
+        (!normalizedData.specifications.length || normalizedData.specifications.length === '') ||
+        (!normalizedData.specifications.weight || normalizedData.specifications.weight === 'Unknown' || normalizedData.specifications.weight === 'Not found');
+      
+      console.log('🔧 [PHASE2-FORM] Should update?', shouldUpdate, {
+        parsedDimensions,
+        hasAnyParsedValues: !!(parsedDimensions.height || parsedDimensions.width || parsedDimensions.length || parsedDimensions.weight)
+      });
+
+      if (shouldUpdate && (parsedDimensions.height || parsedDimensions.width || parsedDimensions.length || parsedDimensions.weight)) {
+        const updatedData = {
+          ...normalizedData,
+          specifications: {
+            ...normalizedData.specifications,
+            height: parsedDimensions.height || normalizedData.specifications.height,
+            width: parsedDimensions.width || normalizedData.specifications.width,
+            length: parsedDimensions.length || normalizedData.specifications.length,
+            weight: parsedDimensions.weight || (normalizedData.specifications.weight !== 'Unknown' && normalizedData.specifications.weight !== 'Not found' ? normalizedData.specifications.weight : ''),
+          }
+        };
+        
+        console.log('✅ [PHASE2-FORM] Updating data with parsed dimensions:', updatedData.specifications);
+        setLocalData(updatedData);
+        return;
+      }
+    }
+    
+    // Use normalized data
+    setLocalData(normalizedData);
+  }, [data]);
 
   const handleMarketResearchChange = (
     field: keyof MarketResearchData["marketResearch"],
@@ -99,6 +227,62 @@ export function Phase2Form({
     };
     setLocalData(newData);
     onUpdate(newData);
+  };
+
+  const handleSave = async () => {
+    if (!productId || isSaving) return;
+
+    setIsSaving(true);
+    try {
+      // Convert individual dimension fields back to the format the API expects
+      const apiData = {
+        ...localData,
+        specifications: {
+          ...localData.specifications,
+          // Keep individual fields for form use, but also provide combined dimensions field for API compatibility
+          dimensions: JSON.stringify({
+            height: localData.specifications.height ? `${localData.specifications.height} inches` : '',
+            width: localData.specifications.width ? `${localData.specifications.width} inches` : '',
+            length: localData.specifications.length ? `${localData.specifications.length} inches` : '',
+            weight: localData.specifications.weight ? `${localData.specifications.weight}` : ''
+          }),
+          // Ensure weight is also saved in the separate weight field
+          weight: localData.specifications.weight || 'Unknown'
+        }
+      };
+
+      console.log('🔧 [PHASE2-FORM] Saving Phase 2 data:', {
+        original: localData,
+        converted: apiData
+      });
+
+      const response = await fetch(`/api/products/${productId}/phase2`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(apiData)
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || `Save failed with status ${response.status}`);
+      }
+
+      if (result.success) {
+        setLastSaved(new Date().toLocaleTimeString());
+        toast.success('✅ Phase 2 data saved successfully!');
+        onSave(); // Call the original onSave callback
+        console.log('✅ [PHASE2-FORM] Save successful:', result);
+      } else {
+        throw new Error(result.error || 'Save operation failed');
+      }
+
+    } catch (error) {
+      console.error('❌ [PHASE2-FORM] Save error:', error);
+      toast.error(`Failed to save Phase 2 data: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const renderPhaseControls = () => {
@@ -227,6 +411,8 @@ export function Phase2Form({
                     )
                   }
                   placeholder="0.00"
+                  disabled
+                  className="cursor-not-allowed"
                 />
                 <Button
                   variant="outline"
@@ -248,6 +434,8 @@ export function Phase2Form({
                   handleMarketResearchChange("amazonLink", e.target.value)
                 }
                 placeholder="https://amazon.com/dp/..."
+                disabled
+                className="cursor-not-allowed"
               />
             </div>
             <div className="space-y-2">
@@ -265,6 +453,8 @@ export function Phase2Form({
                     )
                   }
                   placeholder="0.00"
+                  disabled
+                  className="cursor-not-allowed"
                 />
                 <Button
                   variant="outline"
@@ -286,6 +476,8 @@ export function Phase2Form({
                   handleMarketResearchChange("ebayLink", e.target.value)
                 }
                 placeholder="https://ebay.com/..."
+                disabled
+                className="cursor-not-allowed"
               />
             </div>
             <div className="space-y-2">
@@ -302,6 +494,8 @@ export function Phase2Form({
                   )
                 }
                 placeholder="0.00"
+                disabled
+                className="cursor-not-allowed"
               />
             </div>
             <div className="space-y-2">
@@ -318,84 +512,138 @@ export function Phase2Form({
                   )
                 }
                 placeholder="0.00"
+                disabled
+                className="cursor-not-allowed"
               />
             </div>
           </div>
         </div>
 
-        {/* Specifications Section */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold">Product Specifications</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="brand">Brand</Label>
-              <Input
-                id="brand"
-                value={localData.specifications.brand}
-                onChange={(e) =>
-                  handleSpecificationsChange("brand", e.target.value)
-                }
-                placeholder="Enter brand name"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="category">Category</Label>
-              <Input
-                id="category"
-                value={localData.specifications.category}
-                onChange={(e) =>
-                  handleSpecificationsChange("category", e.target.value)
-                }
-                placeholder="Enter category"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="year">Year</Label>
-              <Input
-                id="year"
-                value={localData.specifications.year}
-                onChange={(e) =>
-                  handleSpecificationsChange("year", e.target.value)
-                }
-                placeholder="e.g., 2024"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="weight">Weight</Label>
-              <Input
-                id="weight"
-                value={localData.specifications.weight}
-                onChange={(e) =>
-                  handleSpecificationsChange("weight", e.target.value)
-                }
-                placeholder="e.g., 2.5 lbs"
-              />
-            </div>
-            <div className="space-y-2 col-span-2">
-              <Label htmlFor="dimensions">Dimensions</Label>
-              <Input
-                id="dimensions"
-                value={localData.specifications.dimensions}
-                onChange={(e) =>
-                  handleSpecificationsChange("dimensions", e.target.value)
-                }
-                placeholder="e.g., 12 x 8 x 10 inches"
-              />
-            </div>
-          </div>
-        </div>
+                 {/* Specifications Section */}
+         <div className="space-y-4">
+           <h3 className="text-lg font-semibold">Product Specifications</h3>
+           
+           {/* Basic Info - 2 columns */}
+           <div className="grid grid-cols-2 gap-4">
+             <div className="space-y-2">
+               <Label htmlFor="brand">Brand</Label>
+               <Input
+                 id="brand"
+                 value={localData.specifications.brand}
+                 onChange={(e) =>
+                   handleSpecificationsChange("brand", e.target.value)
+                 }
+                 placeholder="Enter brand name"
+               />
+             </div>
+             <div className="space-y-2">
+               <WooCommerceCategorySelect
+                 id="category"
+                 label="Category"
+                 value={localData.specifications.category}
+                 onChange={(value) =>
+                   handleSpecificationsChange("category", value)
+                 }
+                 placeholder="Select or enter category"
+               />
+             </div>
+             <div className="space-y-2">
+               <Label htmlFor="year">Year</Label>
+               <Input
+                 id="year"
+                 value={localData.specifications.year}
+                 onChange={(e) =>
+                   handleSpecificationsChange("year", e.target.value)
+                 }
+                 placeholder="e.g., 2024"
+               />
+             </div>
+             <div className="space-y-2">
+               <Label htmlFor="weight">Weight (lbs/oz)</Label>
+               <Input
+                 id="weight"
+                 value={localData.specifications.weight}
+                 onChange={(e) =>
+                   handleSpecificationsChange("weight", e.target.value)
+                 }
+                 placeholder="e.g., 2.5 or 89.6"
+               />
+             </div>
+           </div>
+
+           {/* Dimensions - 3 columns in one row */}
+           <div className="space-y-2">
+             <Label className="text-sm font-medium">Dimensions</Label>
+             <div className="grid grid-cols-3 gap-4">
+               <div className="space-y-2">
+                 <Label htmlFor="height" className="text-sm text-muted-foreground">Height (inches)</Label>
+                 <Input
+                   id="height"
+                   type="number"
+                   step="0.01"
+                   value={localData.specifications.height}
+                   onChange={(e) =>
+                     handleSpecificationsChange("height", e.target.value)
+                   }
+                   placeholder="e.g., 9.80"
+                 />
+               </div>
+               <div className="space-y-2">
+                 <Label htmlFor="width" className="text-sm text-muted-foreground">Width (inches)</Label>
+                 <Input
+                   id="width"
+                   type="number"
+                   step="0.01"
+                   value={localData.specifications.width}
+                   onChange={(e) =>
+                     handleSpecificationsChange("width", e.target.value)
+                   }
+                   placeholder="e.g., 11.20"
+                 />
+               </div>
+               <div className="space-y-2">
+                 <Label htmlFor="length" className="text-sm text-muted-foreground">Length (inches)</Label>
+                 <Input
+                   id="length"
+                   type="number"
+                   step="0.01"
+                   value={localData.specifications.length}
+                   onChange={(e) =>
+                     handleSpecificationsChange("length", e.target.value)
+                   }
+                   placeholder="e.g., 44.50"
+                 />
+               </div>
+             </div>
+           </div>
+
+         </div>
 
         {/* Action Buttons */}
-        <div className="flex justify-between pt-4">
-          <div className="flex gap-2">
+        <div className="flex justify-between items-center pt-4">
+          <div className="flex items-center gap-3">
             <Button variant="outline" onClick={onPrevious}>
               <ChevronLeft className="h-4 w-4 mr-2" />
               Previous
             </Button>
-            <Button variant="outline" onClick={onSave}>
-              <Save className="h-4 w-4 mr-2" />
-              Save Progress
+            <Button 
+              variant="outline" 
+              onClick={handleSave}
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
+              ) : (
+                <Save className="h-4 w-4 mr-2" />
+              )}
+              {isSaving ? 'Saving...' : 'Save Progress'}
             </Button>
+            {lastSaved && (
+              <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                <span>Saved at {lastSaved}</span>
+              </div>
+            )}
           </div>
           <Button onClick={onNext}>
             Continue to SEO Analysis
@@ -423,15 +671,10 @@ export function Phase2Form({
             </div>
             <div>
               <p className="font-medium text-muted-foreground">Physical Specs</p>
-              <p>Weight: {(localData.specifications.weight === 'Unknown' || localData.specifications.weight === 'Not found') ? 'Not found - tune AI prompt' : localData.specifications.weight}</p>
-              <p>Dimensions: {
-                localData.specifications.dimensions === 'Unknown' || 
-                localData.specifications.dimensions === 'Not found' ||
-                localData.specifications.dimensions.includes('"Unknown"') ||
-                localData.specifications.dimensions.includes('"Not found"')
-                  ? 'Not found - tune AI prompt' 
-                  : localData.specifications.dimensions
-              }</p>
+              <p>Weight: {(localData.specifications.weight === 'Unknown' || localData.specifications.weight === 'Not found' || !localData.specifications.weight) ? 'Not found - tune AI prompt' : localData.specifications.weight}</p>
+              <p>Height: {localData.specifications.height || 'Not set'}</p>
+              <p>Width: {localData.specifications.width || 'Not set'}</p>
+              <p>Length: {localData.specifications.length || 'Not set'}</p>
             </div>
             <div>
               <p className="font-medium text-muted-foreground">Technical Specs</p>

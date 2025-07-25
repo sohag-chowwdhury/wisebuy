@@ -21,9 +21,10 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Eye, Database, Search, Upload } from "lucide-react";
-  import { toast } from "sonner";
-  import type { PhaseStatus } from "@/types/pipeline";
+
+import { ArrowLeft, Eye, Database, Search, Upload, ShoppingCart } from "lucide-react";
+import { toast } from "sonner";
+import type { PhaseStatus } from "@/types/pipeline";
 
 // Pipeline steps configuration
 const PIPELINE_STEPS = [
@@ -168,6 +169,8 @@ export default function ProcessingPipeline() {
   // Legacy product state (keep for backward compatibility)
   const [product, setProduct] = useState<ProductDetail | null>(null);
 
+
+
   // Pipeline state - Always start at Phase 1 (Product Analysis)
   const [currentStep, setCurrentStep] = useState(1);
   const [phaseStates, setPhaseStates] = useState<Record<number, PhaseState>>({
@@ -196,6 +199,8 @@ export default function ProcessingPipeline() {
   // State for merged product data
   const [mergedData, setMergedData] = useState<any>(null);
 
+
+
   // Fetch merged data from all tables when component mounts AND when product updates
   useEffect(() => {
     if (productId) {
@@ -217,7 +222,11 @@ export default function ProcessingPipeline() {
     try {
       console.log('🔍 Fetching merged data for product:', productId);
       
-      const response = await fetch(`/api/products/${productId}/merged-data`);
+      // Add timestamp to prevent caching of stale data
+      const timestamp = new Date().getTime();
+      const response = await fetch(`/api/products/${productId}/merged-data?t=${timestamp}`, {
+        cache: 'no-store'
+      });
       
       if (!response.ok) {
         throw new Error(`API request failed: ${response.status} ${response.statusText}`);
@@ -289,21 +298,38 @@ export default function ProcessingPipeline() {
       });
     }
 
-    // Phase 4: Product Listing - Combine all relevant data for listing
+    // Phase 4: Product Listing - Use saved product listing data if available, otherwise fallback to combined data
+    console.log('🔄 [DASHBOARD] Setting Phase 4 data. Product listing data available:', !!data.productListing);
+    if (data.productListing) {
+      console.log('📋 [DASHBOARD] Using saved product listing data:', data.productListing);
+    }
+    
     setProductListingData({
       images: data.images || [], // Use images from merged data
-      productTitle: data.seoAnalysis?.seoTitle || `${data.productInfo.brand} ${data.productInfo.model}`,
-      price: data.marketResearch?.competitivePrice || data.marketResearch?.msrp || 0,
-      publishingStatus: "draft",
-      brand: data.productInfo.brand || "Unknown",
-      category: data.productInfo.category || "General",
-      itemCondition: "good",
-      productDescription: data.productInfo.description || 
+      productTitle: data.productListing?.productTitle || 
+                   data.seoAnalysis?.seoTitle || 
+                   `${data.productInfo.brand} ${data.productInfo.model}`,
+      price: data.productListing?.price || 
+             data.marketResearch?.competitivePrice || 
+             data.marketResearch?.msrp || 0,
+      publishingStatus: data.productListing?.publishingStatus || "draft",
+      brand: data.productListing?.brand || 
+             data.productInfo.brand || "Unknown",
+      category: data.productListing?.category || 
+               data.productInfo.category || "General",
+      itemCondition: data.productListing?.itemCondition || "good",
+      productDescription: data.productListing?.productDescription || 
+                         data.productInfo.description || 
                          `${data.productInfo.brand} ${data.productInfo.model} in excellent condition`,
-      keyFeatures: data.productInfo.keyFeatures || [],
-      // ✅ FIXED: Add technical specs from products table
-      technicalSpecs: data.productInfo.technicalSpecs || {},
-      channels: {
+      keyFeatures: data.productListing?.keyFeatures || 
+                  data.productInfo.keyFeatures || [],
+             // ✅ FIXED: Add technical specs from products table - prioritize updated specs
+       technicalSpecs: (() => {
+         const specs = data.productInfo.technicalSpecs || {};
+         console.log('🔧 [DASHBOARD] Setting technicalSpecs for Phase 4:', specs);
+         return specs;
+       })(),
+      channels: data.productListing?.channels || {
         wordpress: false,
         facebook: false,
         ebay: false,
@@ -424,7 +450,12 @@ export default function ProcessingPipeline() {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    // Refetch merged data after saving to get updated values
+    if (productId) {
+      console.log('🔄 [DASHBOARD] Refetching merged data after save...');
+      await fetchMergedProductData(productId);
+    }
     toast.success("Progress saved successfully!");
   };
 
@@ -527,6 +558,18 @@ export default function ProcessingPipeline() {
               {isLoading ? "Loading details..." : product?.model || "Model Unknown"}
             </p>
           </div>
+          
+          {/* WooCommerce Preview Button */}
+          {!isLoading && !error && mergedData && (
+            <Button 
+              variant="outline" 
+              className="flex items-center gap-2"
+              onClick={() => router.push(`/dashboard/pipeline/${productId}/woocommerce-preview`)}
+            >
+              <ShoppingCart className="h-4 w-4" />
+              WooCommerce Preview
+            </Button>
+          )}
         </div>
 
         {/* Product Overview Card */}

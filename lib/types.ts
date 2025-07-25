@@ -8,6 +8,172 @@ export type UploadStage = "uploading" | "analyzing" | "validation" | "complete";
 export type ProcessingPhase = 1 | 2 | 3 | 4;
 
 // =====================================================
+// COMPREHENSIVE ECOMMERCE ANALYSIS TYPES (NEW)
+// =====================================================
+
+export interface BasicInformation {
+  brand: string;
+  model_number: string;
+  manufacturer: string;
+  product_name: string;
+  category_name: string;
+  category_id: number | null;
+  upc: string;
+  item_number: string;
+}
+
+export interface ProductSpecifications_Comprehensive {
+  height_inches: number | null;
+  height_cm: number | null;
+  width_inches: number | null;
+  width_cm: number | null;
+  depth_inches: number | null;
+  depth_cm: number | null;
+  weight_lbs: number | null;
+  weight_kg: number | null;
+  weight_source: string;
+}
+
+export interface PowerRequirements {
+  voltage: string;
+  wattage: string;
+  bulb_type: string;
+  number_of_bulbs: number | null;
+  led_compatible: boolean | null;
+}
+
+export interface ElectricalSpecs {
+  cord_length: string;
+  ul_listed: boolean | null;
+  etl_listed: boolean | null;
+  csa_listed: boolean | null;
+}
+
+export interface AssemblyInfo {
+  tools_required: boolean | null;
+  estimated_assembly_time: string;
+  difficulty_level: string;
+}
+
+export interface MaterialSpecs {
+  primary_material: string;
+  finish: string;
+  shade_material: string;
+}
+
+export interface TechnicalDetails {
+  power_requirements: PowerRequirements;
+  electrical_specs: ElectricalSpecs;
+  assembly: AssemblyInfo;
+  materials: MaterialSpecs;
+  features: string[];
+}
+
+export interface ComplianceAndSafety {
+  country_of_origin: string;
+  prop_65_warning: boolean | null;
+  safety_certifications: string[];
+  warranty_terms: string;
+}
+
+export interface WebsitesAndDocumentation {
+  official_product_page: string;
+  instruction_manual: string;
+  additional_resources: string[];
+}
+
+export interface AmazonPricing {
+  price: number | null;
+  prime_available: boolean | null;
+  seller_type: string;
+  rating: number | null;
+  review_count: number | null;
+  url: string;
+  search_results_url: string;
+}
+
+export interface EbayPricing_Comprehensive {
+  new_price_range: {
+    min: number | null;
+    max: number | null;
+  };
+  used_price_range: {
+    min: number | null;  
+    max: number | null;
+  };
+  recent_sold_average: number | null;
+  url: string;
+  search_results_url: string;
+  sold_listings_url: string;
+}
+
+export interface OtherRetailer {
+  retailer: string;
+  price: number | null;
+  url: string;
+  availability: string;
+}
+
+export interface ComprehensiveCompetitivePricing {
+  amazon: AmazonPricing;
+  ebay: EbayPricing_Comprehensive;
+  other_retailers: OtherRetailer[];
+}
+
+export interface MarketAnalysis {
+  target_demographics: string[];
+  seasonal_demand: string;
+  complementary_products: string[];
+  key_selling_points: string[];
+}
+
+export interface LogisticsAssessment {
+  package_condition: string;
+  fragility_level: string;
+  shipping_considerations: string;
+  storage_requirements: string;
+  return_policy_implications: string;
+}
+
+export interface VisualContentNeeds {
+  additional_photos_needed: string[];
+  lifestyle_shots_required: boolean | null;
+  detail_shots_required: boolean | null;
+}
+
+export interface PricingRecommendation {
+  msrp: number | null;
+  suggested_price_range: {
+    min: number | null;
+    max: number | null;
+  };
+  justification: string;
+  profit_margin_estimate: string;
+}
+
+export interface AnalysisMetadata {
+  analysis_date: string;
+  analyst_notes: string;
+  data_confidence_level: string;
+  missing_information: string[];
+}
+
+export interface ComprehensiveProductAnalysis {
+  basic_information: BasicInformation;
+  specifications: ProductSpecifications_Comprehensive;
+  product_description: string;
+  technical_details: TechnicalDetails;
+  compliance_and_safety: ComplianceAndSafety;
+  websites_and_documentation: WebsitesAndDocumentation;
+  competitive_pricing: ComprehensiveCompetitivePricing;
+  market_analysis: MarketAnalysis;
+  logistics_assessment: LogisticsAssessment;
+  visual_content_needs: VisualContentNeeds;
+  pricing_recommendation: PricingRecommendation;
+  analysis_metadata: AnalysisMetadata;
+}
+
+// =====================================================
 // PRODUCT ANALYSIS TYPES
 // =====================================================
 
@@ -179,6 +345,11 @@ export interface SEOResponseData {
   result: SEOData;
 }
 
+export interface ComprehensiveAnalysisData {
+  type: "comprehensive";
+  result: ComprehensiveProductAnalysis;
+}
+
 export interface CompletionData {
   type: "complete";
   result: {
@@ -205,6 +376,7 @@ export type StreamingData =
   | CompetitiveAnalysisData
   | PricingSuggestionData
   | SEOResponseData
+  | ComprehensiveAnalysisData
   | CompletionData
   | ErrorData;
 
@@ -242,6 +414,10 @@ export function isPricingData(data: StreamingData): data is PricingSuggestionDat
 
 export function isSEOData(data: StreamingData): data is SEOResponseData {
   return data.type === "seo";
+}
+
+export function isComprehensiveAnalysisData(data: StreamingData): data is ComprehensiveAnalysisData {
+  return data.type === "comprehensive";
 }
 
 export function isCompletionData(data: StreamingData): data is CompletionData {
@@ -360,6 +536,49 @@ export interface PublishResponse {
   productUrl?: string;
   error?: string;
   platform: string;
+}
+
+// =====================================================
+// WOOCOMMERCE CATEGORY TYPES
+// =====================================================
+
+export interface WooCommerceCategory {
+  id: number;
+  name: string;
+  slug: string;
+  parent: number;
+  description: string;
+  display: string;
+  image: {
+    id: number;
+    src: string;
+    name: string;
+    alt: string;
+  } | null;
+  menu_order: number;
+  count: number;
+}
+
+export interface CategoryTreeNode {
+  id: number;
+  name: string;
+  slug: string;
+  description: string;
+  count: number;
+  image?: {
+    id: number;
+    src: string;
+    name: string;
+    alt: string;
+  };
+  children: CategoryTreeNode[];
+  parent: number;
+}
+
+export interface CategoryApiResponse {
+  categories: CategoryTreeNode[];
+  totalCount: number;
+  rootCount: number;
 }
 
 // =====================================================

@@ -441,55 +441,7 @@ export default function Dashboard() {
     router.push(`/dashboard/pipeline/${productId}`);
   };
 
-  const handleMarketResearch = async (productId: string, productName: string) => {
-    try {
-      // Show loading toast
-      const loadingToast = toast.loading(`🔍 Researching ${productName} on Amazon & eBay...`);
-      
-      console.log('🚀 [DASHBOARD] Starting market research for:', productId, productName);
-      
-      // Call the market research API
-      const response = await fetch(`/api/dashboard/products/${productId}/research`, {
-        method: 'POST',
-      });
-      
-      const result = await response.json();
-      
-      // Dismiss loading toast
-      toast.dismiss(loadingToast);
-      
-      if (result.success) {
-        const urlTypeEmoji = result.urlType === 'real' ? '🌐' : '⚠️';
-        const urlTypeText = result.urlType === 'real' ? 'REAL URLs' : 'FAKE URLs';
-        
-        toast.success(
-          `✅ Research completed! Found ${result.data.amazonResults + result.data.ebayResults} results (${urlTypeText}). Average price: $${result.data.averagePrice.toFixed(2)}`
-        );
-        
-        // Show warning for fake URLs
-        if (result.urlType === 'fake' && result.warning) {
-          setTimeout(() => {
-            toast.warning(
-              `${urlTypeEmoji} Using demo data. Configure real marketplace APIs for live data.`,
-              { duration: 8000 }
-            );
-          }, 2000);
-        }
-        
-        // Refresh the dashboard data
-        await fetchProducts();
-        
-        console.log('✅ [DASHBOARD] Market research completed:', result.data);
-      } else {
-        toast.error(`❌ Research failed: ${result.message}`);
-      }
-      
-    } catch (error) {
-      toast.dismiss();
-      console.error('❌ [DASHBOARD] Market research error:', error);
-      toast.error(`❌ Failed to research ${productName}. Please try again.`);
-    }
-  };
+
 
   const stopPropagation = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -618,48 +570,6 @@ export default function Dashboard() {
       toast.error(`Failed to delete products: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
-
-
-
-  // Auto-add test images when dashboard loads if products don't have images
-  const [hasCheckedForImages, setHasCheckedForImages] = useState(false);
-  
-  useEffect(() => {
-    const autoAddTestImages = async () => {
-      if (hasCheckedForImages || !realtimeProducts || realtimeProducts.length === 0) return;
-      
-      // Check if any products have images
-      const productsWithoutImages = realtimeProducts.filter(p => !(p as any).thumbnailUrl);
-      
-      if (productsWithoutImages.length > 0) {
-        console.log('🖼️ [Dashboard] Auto-adding test images for products without images');
-        
-        try {
-          const response = await fetch('/api/add-test-images', {
-            method: 'POST',
-          });
-
-          const result = await response.json();
-          
-          if (response.ok && result.total_processed > 0) {
-            console.log('✅ [Dashboard] Auto-added test images:', result.message);
-            // Wait a moment then refresh to show the new images
-            setTimeout(() => {
-              window.location.reload();
-            }, 1000);
-          }
-        } catch (error) {
-          console.error('❌ [Dashboard] Auto-add images error:', error);
-        }
-      }
-      
-      setHasCheckedForImages(true);
-    };
-
-    if (realtimeProducts && !productsLoading) {
-      autoAddTestImages();
-    }
-  }, [realtimeProducts, productsLoading, hasCheckedForImages]);
 
   return (
     <MainLayout>
@@ -1156,17 +1066,6 @@ export default function Dashboard() {
                             </div>
                           </div>
                                                       <div className="flex gap-1">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={(e) => {
-                                  stopPropagation(e);
-                                  handleMarketResearch(product.id, product.name);
-                                }}
-                                className="text-xs"
-                              >
-                                🔍 Research
-                              </Button>
                               <Button
                                 variant="ghost"
                                 size="sm"

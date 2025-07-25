@@ -5,6 +5,10 @@ export type Product = {
   user_id: string;
   name: string;
   model: string | null;
+  brand: string | null;          // ADDED: Missing from database schema
+  category: string | null;       // ADDED: Missing from database schema
+  description: string | null;    // ADDED: Missing from database schema
+  woocommerce_category_id: number | null; // ADDED: WooCommerce category ID for publishing
   year_released: string | null;
   status:
     | "uploading"
@@ -18,6 +22,30 @@ export type Product = {
   error_message: string | null;
   created_at: string;
   updated_at: string;
+  
+  // ADDED: Missing fields from database schema
+  technical_specs: Record<string, any>;
+  key_features: string[] | null;
+  dimensions: Record<string, any> | null;
+  model_variations: string[] | null;
+  seo_title: string | null;
+  meta_description: string | null;
+  url_slug: string | null;
+  keywords: string[] | null;
+  
+  // Comprehensive analysis fields
+  manufacturer: string | null;
+  upc: string | null;
+  item_number: string | null;
+  product_description: string | null;
+  width_inches: number | null;
+  height_inches: number | null;
+  depth_inches: number | null;
+  weight_lbs: number | null;
+  compliance_data: Record<string, any>;
+  documentation_data: Record<string, any>;
+  visual_content_needs: Record<string, any>;
+  analysis_metadata: Record<string, any>;
 };
 
 export type PipelinePhase = {
@@ -60,9 +88,9 @@ export type MarketResearchData = {
   id: string;
   product_id: string;
   amazon_price: number | null;
-  amazon_link: string | null;
+  amazon_url: string | null;
   ebay_price: number | null;
-  ebay_link: string | null;
+  ebay_url: string | null;
   msrp: number | null;
   competitive_price: number | null;
   brand: string | null;
@@ -72,6 +100,31 @@ export type MarketResearchData = {
   dimensions: string | null;
   created_at: string;
   updated_at: string;
+  
+  // Enhanced Amazon data
+  amazon_prime_available: boolean | null;
+  amazon_seller_type: string | null;
+  amazon_rating: number | null;
+  amazon_review_count: number | null;
+  amazon_search_results_url: string | null;
+  
+  // Enhanced eBay data
+  ebay_new_price_min: number | null;
+  ebay_new_price_max: number | null;
+  ebay_used_price_min: number | null;
+  ebay_used_price_max: number | null;
+  ebay_recent_sold_average: number | null;
+  ebay_search_results_url: string | null;
+  ebay_sold_listings_url: string | null;
+  
+  // Other retailers and market analysis
+  other_retailers_data: Record<string, any>;
+  target_demographics: string[] | null;
+  seasonal_demand_pattern: string | null;
+  complementary_products: string[] | null;
+  key_selling_points: string[] | null;
+  logistics_data: Record<string, any>;
+  pricing_recommendation: Record<string, any>;
 };
 
 export type SEOAnalysisData = {

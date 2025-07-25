@@ -1089,27 +1089,6 @@ async function runPipelinePhasesInBackground({ product, productName, model, bran
       .eq('id', product.id)
     // All changes above are real-time (no local cache, always upsert/update)
     console.log('✅ [UPLOAD] All phases completed for product', product.id)
-    
-    // Automatically trigger AI market research after pipeline completion
-    try {
-      console.log(`🔍 [UPLOAD] Triggering automatic market research for completed product: ${product.id}`)
-      
-      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
-      const researchResponse = await fetch(`${baseUrl}/api/dashboard/products/${product.id}/research`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      })
-      
-      if (researchResponse.ok) {
-        const researchResult = await researchResponse.json()
-        console.log(`✅ [UPLOAD] Auto market research completed:`, researchResult.message)
-      } else {
-        console.warn(`⚠️ [UPLOAD] Market research failed:`, await researchResponse.text())
-      }
-      
-    } catch (researchError) {
-      console.warn(`⚠️ [UPLOAD] Market research error:`, researchError)
-    }
   } catch (err) {
     console.error('❌ [UPLOAD] Pipeline error:', err)
     if (product && product.id) {

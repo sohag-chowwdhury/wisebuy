@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Eye, Save, ChevronRight, Play, Square, RotateCcw } from "lucide-react";
+import { Eye, Save, ChevronRight, Play, Square, RotateCcw, CheckCircle } from "lucide-react";
+import { toast } from "sonner";
+import { useParams } from "next/navigation";
 
 // Phase completion status
 type PhaseStatus = "pending" | "running" | "completed" | "failed";
@@ -65,12 +67,68 @@ export function Phase1Form({
   onRestart,
   canStart,
 }: Phase1FormProps) {
-  const [localData, setLocalData] = useState(data);
+  // Ensure all fields have default values to prevent uncontrolled to controlled input errors
+  const normalizeData = (inputData: ProductAnalysisData): ProductAnalysisData => ({
+    productName: inputData.productName ?? '',
+    model: inputData.model ?? '',
+    confidence: inputData.confidence ?? 0,
+    itemCondition: inputData.itemCondition ?? '',
+    conditionDetails: inputData.conditionDetails ?? '',
+    images: inputData.images ?? [],
+  });
+
+  const [localData, setLocalData] = useState(() => normalizeData(data));
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<string | null>(null);
+  const params = useParams();
+  const productId = params.id as string;
+
+  // Update local data when props change
+  useEffect(() => {
+    const normalizedData = normalizeData(data);
+    setLocalData(normalizedData);
+  }, [data]);
 
   const handleChange = (field: keyof ProductAnalysisData, value: string | number) => {
     const newData = { ...localData, [field]: value };
     setLocalData(newData);
     onUpdate(newData);
+  };
+
+  const handleSave = async () => {
+    if (!productId || isSaving) return;
+
+    setIsSaving(true);
+    try {
+      console.log('🔧 [PHASE1-FORM] Saving Phase 1 data:', localData);
+
+      const response = await fetch(`/api/products/${productId}/phase1`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(localData)
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || `Save failed with status ${response.status}`);
+      }
+
+      if (result.success) {
+        setLastSaved(new Date().toLocaleTimeString());
+        toast.success('✅ Phase 1 data saved successfully!');
+        onSave(); // Call the original onSave callback
+        console.log('✅ [PHASE1-FORM] Save successful:', result);
+      } else {
+        throw new Error(result.error || 'Save operation failed');
+      }
+
+    } catch (error) {
+      console.error('❌ [PHASE1-FORM] Save error:', error);
+      toast.error(`Failed to save Phase 1 data: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const renderPhaseControls = () => {
@@ -259,11 +317,27 @@ export function Phase1Form({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex justify-between pt-4">
-          <Button variant="outline" onClick={onSave}>
-            <Save className="h-4 w-4 mr-2" />
-            Save Progress
-          </Button>
+        <div className="flex justify-between items-center pt-4">
+          <div className="flex items-center gap-3">
+            <Button 
+              variant="outline" 
+              onClick={handleSave}
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
+              ) : (
+                <Save className="h-4 w-4 mr-2" />
+              )}
+              {isSaving ? 'Saving...' : 'Save Progress'}
+            </Button>
+            {lastSaved && (
+              <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                <span>Saved at {lastSaved}</span>
+              </div>
+            )}
+          </div>
           <Button onClick={onNext}>
             Continue to Market Research
             <ChevronRight className="h-4 w-4 ml-2" />
